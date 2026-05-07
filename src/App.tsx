@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth, SignIn } from '@clerk/clerk-react';
 import './App.css';
 import { ImportProvider } from './context/ImportContext';
 import { DomainProvider, useDomain } from './context/DomainContext';
@@ -78,6 +79,20 @@ function AppShell() {
 }
 
 export default function App() {
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="auth-screen">
+        <SignIn routing="virtual" />
+      </div>
+    );
+  }
+
   return (
     <ImportProvider>
       <DomainProvider>

@@ -717,3 +717,12 @@ tbody tr:hover td { background: var(--bg-hover); }
   .page-close-grid  { grid-template-columns: 1fr; }
   .content          { padding: var(--sp-5) var(--sp-4); }
 }
+
+/* ─── Auth screen ────────────────────────────────────────────────────────── */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-page);
+}

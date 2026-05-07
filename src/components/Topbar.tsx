@@ -1,4 +1,5 @@
 import React from 'react';
+import { UserButton } from '@clerk/clerk-react';
 import Icon from './Icon';
 import ExportMenu from './ExportMenu';
 
@@ -24,6 +25,7 @@ export default function Topbar({ pageTitle }: TopbarProps) {
           <Icon name="workflow" size={12} color="#fff" />
           Run close
         </button>
+        <UserButton afterSignOutUrl="/" />
       </div>
     </header>
   );
