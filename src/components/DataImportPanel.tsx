@@ -20,6 +20,16 @@ import {
 } from '../hooks/useCsvImport';
 import { useImport } from '../context/ImportContext';
 import { CsvFileType } from '../types/csvRows';
+import { VendorId } from '../ingestion/types';
+
+const VENDOR_LABELS: Record<VendorId, string> = {
+  openai:        'OpenAI',
+  anthropic:     'Anthropic',
+  azure_openai:  'Azure OpenAI',
+  google_gemini: 'Google Gemini',
+  generic_csv:   'Standard CSV',
+  unknown:       'Unknown format',
+};
 
 // ─── Status badge map ────────────────────────────────────────────────────────
 
@@ -207,15 +217,21 @@ function FileSlotCard({
         {columns}
       </div>
 
-      {/* Row count + warnings */}
+      {/* Row count + ingestion summary + warnings */}
       {state.status === 'ok' && (
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
             {state.rowCount.toLocaleString()} rows · {state.filename}
           </div>
+          {state.ingestionMeta && state.ingestionMeta.vendor !== 'generic_csv' && (
+            <div style={{ fontSize: 10, color: 'var(--accent)', marginBottom: 3, lineHeight: 1.5 }}>
+              Adapted from {VENDOR_LABELS[state.ingestionMeta.vendor]} export
+              {state.ingestionMeta.schema !== 'unknown' ? ` · ${state.ingestionMeta.schema}` : ''}
+            </div>
+          )}
           {state.warnings > 0 && (
             <div style={{ fontSize: 11, color: 'var(--color-warn)', lineHeight: 1.5 }}>
-              ⚠ {state.warnings} validation warning{state.warnings > 1 ? 's' : ''} — data loaded, review issues.
+              ⚠ {state.warnings} warning{state.warnings > 1 ? 's' : ''} — data loaded, review issues.
             </div>
           )}
           {state.validation && state.validation.issues.slice(0, 2).map((issue, i) => (

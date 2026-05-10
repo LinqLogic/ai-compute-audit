@@ -19,6 +19,7 @@ import { useRef, useState, useCallback } from 'react';
 import { parseCsv, ValidationResult } from '../utils/csvParser';
 import { WorkerRow, UsageEventRow, RateCardRow, CsvFileType } from '../types/csvRows';
 import { useImport } from '../context/ImportContext';
+import { runIngestionPipelineFromFile, IngestionMeta } from '../ingestion';
 
 // ─── Slot configuration ──────────────────────────────────────────────────────
 
@@ -57,12 +58,13 @@ export const FILE_SLOTS: FileSlot[] = [
 export type SlotStatus = 'idle' | 'loading' | 'ok' | 'error';
 
 export interface SlotState {
-  status:     SlotStatus;
-  filename:   string;
-  rowCount:   number;
-  message:    string;
-  warnings:   number;      // count of non-error validation issues
-  validation: ValidationResult | null;
+  status:        SlotStatus;
+  filename:      string;
+  rowCount:      number;
+  message:       string;
+  warnings:      number;      // count of non-error validation issues
+  validation:    ValidationResult | null;
+  ingestionMeta?: IngestionMeta;
 }
 
 const defaultSlot = (): SlotState => ({
@@ -122,6 +124,37 @@ export function useCsvImport(): UseCsvImportReturn {
   async function processFile(file: File, slotKey: SlotKey, fileType: CsvFileType) {
     setSlot(slotKey, { status: 'loading', filename: file.name, message: '' });
 
+    // ── Try enterprise ingestion pipeline first ──────────────────────────────
+    // Handles vendor-specific exports (OpenAI, Anthropic, Azure, Google) and
+    // non-standard column layouts. Falls back to legacy parseCsv if it fails
+    // or cannot produce the expected data shape for this slot.
+    try {
+      const pipeline = await runIngestionPipelineFromFile(file);
+
+      const hasWorkers     = fileType === 'workers'      && pipeline.workers     !== undefined;
+      const hasUsageEvents = fileType === 'usage_events' && pipeline.usageEvents !== undefined;
+      const hasRateCards   = fileType === 'rate_cards'   && pipeline.rateCards   !== undefined;
+
+      if (hasWorkers || hasUsageEvents || hasRateCards) {
+        if (hasWorkers)     applyImport({ workers:     pipeline.workers });
+        if (hasUsageEvents) applyImport({ usageEvents: pipeline.usageEvents });
+        if (hasRateCards)   applyImport({ rateCards:   pipeline.rateCards });
+
+        setSlot(slotKey, {
+          status:        'ok',
+          rowCount:      pipeline.meta.rowsOut,
+          message:       '',
+          warnings:      pipeline.meta.warnings.length,
+          validation:    null,
+          ingestionMeta: pipeline.meta,
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('[ingestion] Pipeline error — falling back to legacy importer:', err);
+    }
+
+    // ── Legacy fallback (standard-format CSV with required columns) ──────────
     if (fileType === 'workers') {
       const result = await parseCsv<WorkerRow>(file, 'workers');
       if (result.error) {
