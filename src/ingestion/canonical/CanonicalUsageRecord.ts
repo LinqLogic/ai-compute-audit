@@ -3,6 +3,7 @@ export interface CanonicalUsageRecord {
   employeeId?:      string;
   userId?:          string;
   email?:           string;
+  employeeName?:    string;
   vendor:           string;
   model?:           string;
   product?:         string;
@@ -11,8 +12,12 @@ export interface CanonicalUsageRecord {
   totalTokens?:     number;
   gpuHours?:        number;
   billedAmount?:    number;
+  requests?:        number;
+  unitCost?:        number;
   currency?:        string;
   timestamp?:       string;
+  periodStart?:     string;
+  periodEnd?:       string;
   requestId?:       string;
   organizationId?:  string;
   projectId?:       string;

@@ -18,7 +18,7 @@ export function mapWorkersToRows(records: CanonicalWorkerRecord[]): WorkerRow[] 
 export function mapUsageToRows(records: CanonicalUsageRecord[]): UsageEventRow[] {
   return records.map((r, i) => ({
     event_id:      r.id          ?? `auto-${Date.now()}-${i}`,
-    employee_id:   r.employeeId  ?? r.userId ?? '',
+    employee_id:   r.employeeId  ?? r.userId ?? r.email ?? '',
     provider:      r.vendor,
     product:       r.product     ?? r.model  ?? '',
     model:         r.model       ?? '',

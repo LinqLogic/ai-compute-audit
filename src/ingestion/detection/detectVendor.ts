@@ -1,4 +1,8 @@
 import { VendorId } from '../types';
+import {
+  buildColumnLookup, findColumn,
+  SYN_TOTAL_COST, SYN_EMPLOYEE_ID, SYN_COST_CENTER,
+} from '../utils/columnMatching';
 
 export function detectVendor(
   filename: string,
@@ -39,8 +43,13 @@ export function detectVendor(
     if (hasClaude) return 'anthropic';
   }
 
-  // Our own standard format (any of these key columns present)
-  if (h.has('employee_id') || h.has('billed_amount') || h.has('cost_center')) {
+  // Semantic fallback: any recognisable cost/identity field → treat as generic CSV
+  const lookup = buildColumnLookup(headers);
+  if (
+    findColumn(lookup, SYN_EMPLOYEE_ID) !== undefined ||
+    findColumn(lookup, SYN_TOTAL_COST)  !== undefined ||
+    findColumn(lookup, SYN_COST_CENTER) !== undefined
+  ) {
     return 'generic_csv';
   }
 

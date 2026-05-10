@@ -1,5 +1,12 @@
 import { CanonicalUsageRecord } from '../canonical/CanonicalUsageRecord';
 import { AdapterOutput, IngestionWarning } from '../types';
+import {
+  buildColumnLookup, getValue,
+  SYN_PROVIDER, SYN_MODEL, SYN_EMPLOYEE_ID, SYN_EMPLOYEE_EMAIL, SYN_EMPLOYEE_NAME,
+  SYN_TOTAL_COST, SYN_INPUT_TOKENS, SYN_OUTPUT_TOKENS, SYN_TOTAL_TOKENS,
+  SYN_GPU_HOURS, SYN_TIMESTAMP, SYN_CURRENCY, SYN_EVENT_ID,
+  SYN_REQUESTS, SYN_UNIT_COST, SYN_PERIOD_START, SYN_PERIOD_END,
+} from '../utils/columnMatching';
 
 function parseNum(v: unknown): number | undefined {
   if (v === undefined || v === null) return undefined;
@@ -9,17 +16,9 @@ function parseNum(v: unknown): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
-function first(r: Record<string, string>, ...keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = r[k];
-    if (v) return v;
-  }
-  return undefined;
-}
-
 /**
  * Best-effort adapter for unrecognised vendor exports.
- * Tries a broad set of common column name patterns.
+ * Uses semantic synonym matching across the full synonym dictionary.
  */
 export function adaptUnknownUsage(
   rows: Record<string, string>[],
@@ -27,18 +26,30 @@ export function adaptUnknownUsage(
   const warnings: IngestionWarning[] = [
     { message: 'Vendor not recognised — applying best-effort column mapping. Review output carefully.' },
   ];
+  if (rows.length === 0) return { records: [], warnings };
+
+  const lookup  = buildColumnLookup(Object.keys(rows[0]));
   const records: CanonicalUsageRecord[] = [];
 
   rows.forEach(r => {
     records.push({
-      vendor:       first(r, 'provider', 'vendor', 'service', 'service_name') ?? 'unknown',
-      model:        first(r, 'model', 'model_name', 'snapshot_id', 'sku_description', 'metername'),
-      employeeId:   first(r, 'employee_id', 'user_id', 'api_key_id', 'user', 'username'),
-      billedAmount: parseNum(first(r, 'billed_amount', 'cost', 'amount', 'pretaxcost', 'total', 'charge')) ?? 0,
-      tokensIn:     parseNum(first(r, 'tokens_in', 'input_tokens', 'context_tokens', 'prompt_tokens')),
-      tokensOut:    parseNum(first(r, 'tokens_out', 'output_tokens', 'generated_tokens', 'completion_tokens')),
-      timestamp:    first(r, 'timestamp', 'date', 'created_at', 'usage_date', 'event_time', 'usagedatetime'),
-      currency:     first(r, 'currency') ?? 'USD',
+      id:           getValue(r, lookup, SYN_EVENT_ID),
+      vendor:       getValue(r, lookup, SYN_PROVIDER)       ?? 'unknown',
+      model:        getValue(r, lookup, SYN_MODEL),
+      employeeId:   getValue(r, lookup, SYN_EMPLOYEE_ID),
+      email:        getValue(r, lookup, SYN_EMPLOYEE_EMAIL),
+      employeeName: getValue(r, lookup, SYN_EMPLOYEE_NAME),
+      billedAmount: parseNum(getValue(r, lookup, SYN_TOTAL_COST))    ?? 0,
+      tokensIn:     parseNum(getValue(r, lookup, SYN_INPUT_TOKENS)),
+      tokensOut:    parseNum(getValue(r, lookup, SYN_OUTPUT_TOKENS)),
+      totalTokens:  parseNum(getValue(r, lookup, SYN_TOTAL_TOKENS)),
+      gpuHours:     parseNum(getValue(r, lookup, SYN_GPU_HOURS)),
+      requests:     parseNum(getValue(r, lookup, SYN_REQUESTS)),
+      unitCost:     parseNum(getValue(r, lookup, SYN_UNIT_COST)),
+      currency:     getValue(r, lookup, SYN_CURRENCY)       ?? 'USD',
+      timestamp:    getValue(r, lookup, SYN_TIMESTAMP),
+      periodStart:  getValue(r, lookup, SYN_PERIOD_START),
+      periodEnd:    getValue(r, lookup, SYN_PERIOD_END),
       raw: r,
     });
   });
