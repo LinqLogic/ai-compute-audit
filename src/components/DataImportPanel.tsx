@@ -1,80 +1,80 @@
 /**
- * DataImportPanel.tsx
+ * DataImportPanel.tsx  —  Phase 2 unified enterprise intake UI
  *
- * Purely presentational component.
- * All upload, parsing, validation, and state logic lives in useCsvImport.
+ * Replaces the three-slot grid with a single drop zone that accepts any number
+ * of CSV files.  Each file is processed by the ingestion pipeline (vendor/schema
+ * detection) with a legacy column-matching fallback.  Results are shown in a
+ * per-file list with a combined domain summary below.
  *
- * Renders:
- *   - Collapsed header strip with source indicator pill
- *   - Expanded panel with three file slots, drag-and-drop, status badges
- *   - Sample CSV download buttons
+ * Internal slot/domain state (workers / usageEvents / rateCards) is unchanged.
+ * The old useCsvImport hook is preserved and can still be imported by other code.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import Icon from './Icon';
-import {
-  useCsvImport,
-  FILE_SLOTS,
-  SlotKey,
-  SlotStatus,
-} from '../hooks/useCsvImport';
 import { useImport } from '../context/ImportContext';
 import { CsvFileType } from '../types/csvRows';
-import { VendorId } from '../ingestion/types';
+import {
+  useEnterpriseIntake,
+  IntakeResult,
+  IntakeStatus,
+  SCHEMA_DISPLAY,
+} from '../hooks/useEnterpriseIntake';
 
-const VENDOR_LABELS: Record<VendorId, string> = {
-  openai:        'OpenAI',
-  anthropic:     'Anthropic',
-  azure_openai:  'Azure OpenAI',
-  google_gemini: 'Google Gemini',
-  generic_csv:   'Standard CSV',
-  unknown:       'Unknown format',
+// ─── Status display config ────────────────────────────────────────────────────
+
+const STATUS_CFG: Record<IntakeStatus, { label: string; color: string; bg: string }> = {
+  processing:   { label: 'Parsing…',       color: 'var(--accent)',        bg: 'rgba(37,99,235,.1)'   },
+  imported:     { label: 'Imported',        color: '#16a34a',              bg: 'rgba(22,163,74,.1)'   },
+  adapted:      { label: 'Adapted',         color: 'var(--accent)',        bg: 'rgba(37,99,235,.1)'   },
+  fallback:     { label: 'Fallback',        color: '#d97706',              bg: 'rgba(217,119,6,.1)'   },
+  failed:       { label: 'Failed',          color: 'var(--color-danger)',  bg: 'rgba(220,38,38,.1)'   },
+  unrecognised: { label: 'Not recognised',  color: '#d97706',              bg: 'rgba(217,119,6,.1)'   },
 };
 
-// ─── Status badge map ────────────────────────────────────────────────────────
+const SUCCESS_STATUSES: IntakeStatus[] = ['imported', 'adapted', 'fallback'];
 
-const STATUS_BADGES: Record<SlotStatus, React.ReactNode> = {
-  idle:    <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>No file</span>,
-  loading: <span style={{ color: 'var(--accent)', fontSize: 11 }}>Parsing…</span>,
-  ok:      <span className="badge badge-ok"     style={{ fontSize: 10 }}>✓ Loaded</span>,
-  error:   <span className="badge badge-danger" style={{ fontSize: 10 }}>Error</span>,
-};
+const SAMPLE_SLOTS: { type: CsvFileType; label: string }[] = [
+  { type: 'workers',      label: 'Employee roster' },
+  { type: 'usage_events', label: 'Usage events'    },
+  { type: 'rate_cards',   label: 'Rate cards'      },
+];
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function DataImportPanel() {
   const { isUsingImport } = useImport();
   const {
-    slots, expanded, toggleExpanded,
-    inputRef, openFilePicker, onFileInputChange,
-    onDrop, handleReset, downloadSample,
-  } = useCsvImport();
+    results, isProcessing,
+    expanded, toggleExpanded,
+    inputRef, onFileInputChange, onZoneDrop,
+    handleReset, downloadSample,
+  } = useEnterpriseIntake();
 
   return (
     <div style={{ marginBottom: 20 }}>
       {/* ── Collapsed header strip ── */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: '#fff',
-          border: `1px solid ${isUsingImport ? 'var(--color-success-border)' : 'var(--border)'}`,
-          borderRadius: expanded ? '8px 8px 0 0' : 8,
-          padding: '10px 14px',
-          cursor: 'pointer',
-          transition: 'border-color 0.2s',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'space-between',
+          background:      '#fff',
+          border:          `1px solid ${isUsingImport ? 'var(--color-success-border)' : 'var(--border)'}`,
+          borderRadius:    expanded ? '8px 8px 0 0' : 8,
+          padding:         '10px 14px',
+          cursor:          'pointer',
+          transition:      'border-color 0.2s',
         }}
         onClick={toggleExpanded}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="database" size={14} color={isUsingImport ? '#22c55e' : '#475569'} />
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-            CSV data import
+            Enterprise AI Data Intake
           </span>
           <SourcePill isUsingImport={isUsingImport} />
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isUsingImport && (
             <button
@@ -86,7 +86,9 @@ export default function DataImportPanel() {
             </button>
           )}
           <Icon name="filter" size={12} color="#475569" />
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{expanded ? 'Hide' : 'Show'}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+            {expanded ? 'Hide' : 'Show'}
+          </span>
         </div>
       </div>
 
@@ -94,60 +96,83 @@ export default function DataImportPanel() {
       {expanded && (
         <div
           style={{
-            background: '#fff',
-            border: '1px solid var(--border)',
-            borderTop: 'none',
+            background:   '#fff',
+            border:       '1px solid var(--border)',
+            borderTop:    'none',
             borderRadius: '0 0 8px 8px',
-            padding: 16,
+            padding:      16,
           }}
         >
           <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.6 }}>
-            Upload CSV files to replace demo data. Drag a file onto a slot or click{' '}
-            <strong style={{ color: 'var(--text-secondary)' }}>Choose file</strong>.
-            Partial uploads are supported — unloaded files fall back to demo data.
+            Upload one or more AI vendor exports. The system will detect vendor, schema, and record
+            type automatically. Partial uploads are supported — domains without an uploaded file
+            continue using demo data.
           </p>
 
-          {/* File slots */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {FILE_SLOTS.map(slot => {
-              const state = slots[slot.key];
-              return (
-                <FileSlotCard
-                  key={slot.key}
-                  label={slot.label}
-                  columns={slot.columns}
-                  slotKey={slot.key}
-                  fileType={slot.type}
-                  state={state}
-                  onDrop={onDrop}
-                  onChoose={openFilePicker}
-                />
-              );
-            })}
-          </div>
+          {/* ── Drop zone ── */}
+          <DropZone
+            inputRef={inputRef}
+            isProcessing={isProcessing}
+            onZoneDrop={onZoneDrop}
+          />
 
-          {/* Hidden file input */}
+          {/* ── Hidden multi-file input ── */}
           <input
             ref={inputRef}
             type="file"
             accept=".csv"
+            multiple
             style={{ display: 'none' }}
             onChange={onFileInputChange}
           />
 
-          {/* Sample CSV downloads */}
-          <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {FILE_SLOTS.map(slot => (
-              <button
-                key={slot.key}
-                className="btn btn-ghost"
-                style={{ fontSize: 10, padding: '3px 9px', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                onClick={() => downloadSample(slot.type)}
-              >
-                <Icon name="download" size={10} color="#475569" />
-                Sample {slot.label}
-              </button>
-            ))}
+          {/* ── Per-file results ── */}
+          {results.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)',
+                textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+              }}>
+                Processed files
+              </div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                {results.map((r, i) => (
+                  <IntakeResultRow
+                    key={r.id}
+                    result={r}
+                    isLast={i === results.length - 1}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Domain summary ── */}
+          {results.some(r => SUCCESS_STATUSES.includes(r.status)) && (
+            <ImportSummary results={results} />
+          )}
+
+          {/* ── Sample downloads ── */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)',
+              textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+            }}>
+              Download templates
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {SAMPLE_SLOTS.map(s => (
+                <button
+                  key={s.type}
+                  className="btn btn-ghost"
+                  style={{ fontSize: 10, padding: '3px 9px', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                  onClick={() => downloadSample(s.type)}
+                >
+                  <Icon name="download" size={10} color="#475569" />
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -155,115 +180,198 @@ export default function DataImportPanel() {
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Drop zone ────────────────────────────────────────────────────────────────
 
-function SourcePill({ isUsingImport }: { isUsingImport: boolean }) {
-  return (
-    <span
-      style={{
-        fontSize: 10,
-        padding: '2px 8px',
-        borderRadius: 4,
-        fontWeight: 500,
-        background: isUsingImport ? 'var(--color-success-bg)' : 'var(--color-warn-bg)',
-        border:     isUsingImport ? '1px solid var(--color-success-border)' : '1px solid var(--color-warn-border)',
-        color:      isUsingImport ? 'var(--color-success)'  : 'var(--color-warn)',
-      }}
-    >
-      {isUsingImport ? '● Imported data active' : '● Demo data active'}
-    </span>
-  );
-}
-
-interface FileSlotCardProps {
-  label:    string;
-  columns:  string;
-  slotKey:  SlotKey;
-  fileType: CsvFileType;
-  state:    ReturnType<typeof useCsvImport>['slots'][SlotKey];
-  onDrop:   (e: React.DragEvent, key: SlotKey, type: CsvFileType) => void;
-  onChoose: (key: SlotKey) => void;
-}
-
-function FileSlotCard({
-  label, columns, slotKey, fileType, state, onDrop, onChoose,
-}: FileSlotCardProps) {
-  const borderColor =
-    state.status === 'ok'    ? 'rgba(34,197,94,.35)'  :
-    state.status === 'error' ? 'rgba(220,38,38,.35)' : 'var(--border-strong)';
+function DropZone({
+  inputRef,
+  isProcessing,
+  onZoneDrop,
+}: {
+  inputRef:       React.RefObject<HTMLInputElement | null>;
+  isProcessing:   boolean;
+  onZoneDrop:     (e: React.DragEvent) => void;
+}) {
+  const [isDragOver, setIsDragOver] = useState(false);
 
   return (
     <div
-      onDragOver={e => e.preventDefault()}
-      onDrop={e => onDrop(e, slotKey, fileType)}
+      onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={e => { setIsDragOver(false); onZoneDrop(e); }}
+      onClick={() => !isProcessing && inputRef.current?.click()}
       style={{
-        background:   'var(--bg-surface)',
-        border:       `1px dashed ${borderColor}`,
-        borderRadius: 7,
-        padding:      '12px 13px',
-        transition:   'border-color 0.15s',
+        border:       `2px dashed ${isDragOver ? 'var(--accent)' : 'var(--border-strong)'}`,
+        borderRadius: 8,
+        padding:      '28px 16px',
+        textAlign:    'center',
+        background:   isDragOver ? 'rgba(37,99,235,.04)' : 'var(--bg-surface)',
+        transition:   'all 0.15s',
+        cursor:       isProcessing ? 'default' : 'pointer',
+        userSelect:   'none',
       }}
     >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-          {label}
-        </span>
-        {STATUS_BADGES[state.status]}
+      <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 8, color: isDragOver ? 'var(--accent)' : '#94a3b8' }}>
+        ⬆
       </div>
-
-      {/* Column hint */}
-      <div style={{ fontSize: 10, color: '#334155', lineHeight: 1.55, marginBottom: 10, wordBreak: 'break-word' }}>
-        {columns}
+      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>
+        {isProcessing ? 'Processing files…' : 'Drop CSV files here or click to browse'}
       </div>
-
-      {/* Row count + ingestion summary + warnings */}
-      {state.status === 'ok' && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-            {state.rowCount.toLocaleString()} rows · {state.filename}
-          </div>
-          {state.ingestionMeta && state.ingestionMeta.vendor !== 'generic_csv' && (
-            <div style={{ fontSize: 10, color: 'var(--accent)', marginBottom: 3, lineHeight: 1.5 }}>
-              Adapted from {VENDOR_LABELS[state.ingestionMeta.vendor]} export
-              {state.ingestionMeta.schema !== 'unknown' ? ` · ${state.ingestionMeta.schema}` : ''}
-            </div>
-          )}
-          {state.warnings > 0 && (
-            <div style={{ fontSize: 11, color: 'var(--color-warn)', lineHeight: 1.5 }}>
-              ⚠ {state.warnings} warning{state.warnings > 1 ? 's' : ''} — data loaded, review issues.
-            </div>
-          )}
-          {state.validation && state.validation.issues.slice(0, 2).map((issue, i) => (
-            <div key={i} style={{ fontSize: 10, color: issue.severity === 'error' ? '#f87171' : '#94a3b8', marginTop: 2, lineHeight: 1.4 }}>
-              Row {issue.row}: {issue.message}
-            </div>
-          ))}
-          {state.validation && state.validation.issues.length > 2 && (
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>
-              +{state.validation.issues.length - 2} more issues
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Error message */}
-      {state.status === 'error' && (
-        <div style={{ fontSize: 11, color: 'var(--color-danger)', marginBottom: 8, lineHeight: 1.5 }}>
-          {state.message}
-        </div>
-      )}
-
-      {/* Action button */}
-      <button
-        className="btn btn-ghost"
-        style={{ width: '100%', justifyContent: 'center', fontSize: 11, padding: '5px 0' }}
-        onClick={() => onChoose(slotKey)}
-        disabled={state.status === 'loading'}
-      >
-        <Icon name="plus" size={11} color="#64748b" />
-        {state.status === 'ok' ? 'Replace file' : 'Choose file'}
-      </button>
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+        OpenAI · Anthropic · Azure · Google Gemini · Standard CSV
+        <br />
+        Multiple files supported
+      </div>
     </div>
+  );
+}
+
+// ─── Per-file result row ──────────────────────────────────────────────────────
+
+function IntakeResultRow({ result, isLast }: { result: IntakeResult; isLast: boolean }) {
+  const cfg = STATUS_CFG[result.status];
+
+  return (
+    <div style={{
+      display:       'flex',
+      alignItems:    'center',
+      gap:           10,
+      padding:       '7px 12px',
+      borderBottom:  isLast ? 'none' : '1px solid var(--border)',
+      background:    '#fff',
+    }}>
+      {/* Filename */}
+      <span style={{
+        flex:        1,
+        fontFamily:  'monospace',
+        fontSize:    11,
+        color:       'var(--text-primary)',
+        overflow:    'hidden',
+        textOverflow:'ellipsis',
+        whiteSpace:  'nowrap',
+        minWidth:    0,
+      }}>
+        {result.filename}
+      </span>
+
+      {/* Vendor */}
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 96, flexShrink: 0 }}>
+        {result.vendorLabel}
+      </span>
+
+      {/* Schema / record type */}
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 110, flexShrink: 0 }}>
+        {result.status === 'processing' ? '—' : result.schemaLabel}
+      </span>
+
+      {/* Row count */}
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 64, textAlign: 'right', flexShrink: 0 }}>
+        {result.status === 'processing' ? '…' : `${result.rowsProcessed.toLocaleString()} rows`}
+      </span>
+
+      {/* Warnings */}
+      <span style={{
+        fontSize:   11,
+        color:      result.warningCount > 0 ? '#d97706' : 'var(--text-muted)',
+        minWidth:   48,
+        textAlign:  'right',
+        flexShrink: 0,
+      }}>
+        {result.warningCount > 0 ? `⚠ ${result.warningCount}` : '—'}
+      </span>
+
+      {/* Status badge */}
+      <span style={{
+        fontSize:     10,
+        fontWeight:   500,
+        padding:      '2px 8px',
+        borderRadius: 4,
+        color:        cfg.color,
+        background:   cfg.bg,
+        minWidth:     90,
+        textAlign:    'center',
+        flexShrink:   0,
+      }}>
+        {cfg.label}
+      </span>
+    </div>
+  );
+}
+
+// ─── Import summary ───────────────────────────────────────────────────────────
+
+function ImportSummary({ results }: { results: IntakeResult[] }) {
+  const successful = results.filter(r => SUCCESS_STATUSES.includes(r.status));
+
+  const lastWorker   = [...successful].reverse().find(r => r.schemaRaw === 'workers');
+  const lastUsage    = [...successful].reverse().find(r => r.schemaRaw === 'usage');
+  const lastRateCard = [...successful].reverse().find(r => r.schemaRaw === 'rate_cards');
+
+  const totalWarnings = results.reduce((s, r) => s + r.warningCount, 0);
+
+  const usingDemoFor = [
+    !lastWorker   && 'employee roster',
+    !lastUsage    && 'usage records',
+    !lastRateCard && 'rate cards',
+  ].filter(Boolean) as string[];
+
+  return (
+    <div style={{
+      marginTop:    10,
+      padding:      '8px 12px',
+      background:   'var(--bg-surface)',
+      border:       '1px solid var(--border)',
+      borderRadius: 6,
+      display:      'flex',
+      gap:          14,
+      flexWrap:     'wrap',
+      alignItems:   'center',
+      fontSize:     11,
+    }}>
+      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Summary</span>
+
+      {lastWorker && (
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {lastWorker.rowsProcessed.toLocaleString()} {SCHEMA_DISPLAY.workers.toLowerCase()}
+        </span>
+      )}
+      {lastUsage && (
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {lastUsage.rowsProcessed.toLocaleString()} {SCHEMA_DISPLAY.usage.toLowerCase()}
+        </span>
+      )}
+      {lastRateCard && (
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {lastRateCard.rowsProcessed.toLocaleString()} {SCHEMA_DISPLAY.rate_cards.toLowerCase()}
+        </span>
+      )}
+
+      {totalWarnings > 0 && (
+        <span style={{ color: '#d97706' }}>⚠ {totalWarnings} warning{totalWarnings > 1 ? 's' : ''}</span>
+      )}
+
+      {usingDemoFor.length > 0 && (
+        <span style={{ color: 'var(--text-muted)' }}>
+          Using demo data for: {usingDemoFor.join(', ')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Source pill ──────────────────────────────────────────────────────────────
+
+function SourcePill({ isUsingImport }: { isUsingImport: boolean }) {
+  return (
+    <span style={{
+      fontSize:   10,
+      padding:    '2px 8px',
+      borderRadius: 4,
+      fontWeight: 500,
+      background: isUsingImport ? 'var(--color-success-bg)' : 'var(--color-warn-bg)',
+      border:     isUsingImport ? '1px solid var(--color-success-border)' : '1px solid var(--color-warn-border)',
+      color:      isUsingImport ? 'var(--color-success)' : 'var(--color-warn)',
+    }}>
+      {isUsingImport ? '● Imported data active' : '● Demo data active'}
+    </span>
   );
 }
