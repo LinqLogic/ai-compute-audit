@@ -155,9 +155,9 @@ function SourcePill({ isUsingImport }: { isUsingImport: boolean }) {
         padding: '2px 8px',
         borderRadius: 4,
         fontWeight: 500,
-        background: isUsingImport ? 'rgba(34,197,94,.1)'           : 'rgba(251,191,36,.08)',
+        background: isUsingImport ? 'var(--color-success-bg)' : 'var(--color-warn-bg)',
         border:     isUsingImport ? '1px solid var(--color-success-border)' : '1px solid var(--color-warn-border)',
-        color:      isUsingImport ? '#86efac'                       : '#fde68a',
+        color:      isUsingImport ? 'var(--color-success)'  : 'var(--color-warn)',
       }}
     >
       {isUsingImport ? '● Imported data active' : '● Demo data active'}

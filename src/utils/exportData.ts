@@ -130,8 +130,8 @@ export function exportRateCardsCsv(ratecards: RateCard[]): void {
     r.model,
     r.unit,
     r.cost.toFixed(2),
-    (r.markup * 100).toFixed(0),
-    (r.cost * (1 + r.markup)).toFixed(2),
+    ((r.markup - 1) * 100).toFixed(0),
+    (r.cost * r.markup).toFixed(2),
     r.effective,
   ]);
   downloadFile(toCsv(RATE_HEADERS, rows), 'ai_audit_rate_cards.csv', 'text/csv');

@@ -178,8 +178,8 @@ export default function Overview({ filtered, deptSpend, policyMix }: Props) {
                     {overBudget.map(d => d.name).join(', ')}. Review cost centre ownership before month lock.
                   </div>
                 ) : (
-                  <div className="insight-item insight-warn">
-                    <strong>Spend above budget.</strong> Monitor concentration risk in high-usage departments.
+                  <div className="insight-item insight-info">
+                    <strong>All departments within budget.</strong> Continue monitoring for mid-month usage spikes.
                   </div>
                 )}
                 {escalations.length > 0 ? (

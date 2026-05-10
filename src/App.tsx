@@ -82,7 +82,13 @@ export default function App() {
   const { isSignedIn, isLoaded } = useAuth();
 
   if (!isLoaded) {
-    return null;
+    return (
+      <div className="auth-screen">
+        <div style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: '0.02em' }}>
+          Loading…
+        </div>
+      </div>
+    );
   }
 
   if (!isSignedIn) {

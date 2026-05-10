@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Employee } from '../data/types';
 import { fmt$, fmtPct, riskColor, policyBadgeClass } from '../utils/format';
+import { exportEmployeesCsv } from '../utils/exportData';
 import Icon from '../components/Icon';
 
 interface Props {
@@ -8,11 +9,10 @@ interface Props {
 }
 
 export default function Ledger({ employees }: Props) {
-  const [dept,     setDept]     = useState('all');
-  const [search,   setSearch]   = useState('');
-  const [viewMode, setViewMode] = useState('showback');
-  const [sortKey,  setSortKey]  = useState<keyof Employee>('spend');
-  const [sortDir,  setSortDir]  = useState<'asc'|'desc'>('desc');
+  const [dept,    setDept]    = useState('all');
+  const [search,  setSearch]  = useState('');
+  const [sortKey, setSortKey] = useState<keyof Employee>('spend');
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
 
   const filtered = useMemo(() => {
     let list = employees.filter(e => {
@@ -62,14 +62,11 @@ export default function Ledger({ employees }: Props) {
         <div>
           <div className="card-title">Employee AI usage ledger</div>
           <div className="card-sub">
-            {filtered.length} employees · April 2026 ·{' '}
-            {viewMode === 'chargeback'
-              ? 'Chargeback mode — costs are being allocated'
-              : 'Showback mode — informational only'}
+            {filtered.length} employees · April 2026 · Showback mode — informational only
           </div>
         </div>
-        <button className="btn btn-primary" style={{ fontSize: 11 }}>
-          <Icon name="download" size={12} color="#0f172a" />
+        <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => exportEmployeesCsv(filtered)}>
+          <Icon name="download" size={12} color="#fff" />
           Export ledger
         </button>
       </div>
@@ -77,23 +74,17 @@ export default function Ledger({ employees }: Props) {
       <div className="card-body" style={{ overflowX: 'auto' }}>
         {/* Filter bar */}
         <div className="filter-bar">
-          <div style={{ position: 'relative', flex: 1 }}>
+          <div className="search-wrap">
             <Icon name="search" size={13} color="#475569" />
             <input
               placeholder="Search employee, role, cost center..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: 28 }}
             />
           </div>
           <select value={dept} onChange={e => setDept(e.target.value)}>
             <option value="all">All departments</option>
             {departments.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <select value={viewMode} onChange={e => setViewMode(e.target.value)}>
-            <option value="showback">Showback view</option>
-            <option value="chargeback">Chargeback view</option>
-            <option value="policy">Policy review</option>
           </select>
         </div>
 
