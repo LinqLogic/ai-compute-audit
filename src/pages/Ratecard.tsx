@@ -1,3 +1,6 @@
+// Hidden from primary nav during enterprise navigation consolidation.
+// Rate card data is now surfaced via Settings › Vendor billing & rate cards.
+// This component remains fully functional and is embedded in Settings.tsx.
 import React from 'react';
 import { RateCard } from '../data/types';
 import { useImport } from '../context/ImportContext';

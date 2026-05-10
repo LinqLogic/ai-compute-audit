@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import DataImportPanel from '../components/DataImportPanel';
 import { defaultPolicyRules } from '../data/mockData';
 import { PolicyRule } from '../data/types';
+import { useDomain } from '../context/DomainContext';
+import Ratecard from './Ratecard';
+import Scenarios from './Scenarios';
 
 export default function Settings() {
+  const { ratecards } = useDomain();
   const [rules, setRules] = useState<PolicyRule[]>(defaultPolicyRules);
 
   function toggleRule(key: string) {
@@ -17,6 +21,8 @@ export default function Settings() {
   return (
     <>
       <DataImportPanel />
+
+      {/* ── Policy & integrations ── */}
       <div className="section-row">
         {/* Policy rules */}
         <div className="card">
@@ -109,6 +115,29 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Vendor billing & rate cards ──────────────────────────────────────────
+          Phase 4: Rate Cards moved from primary sidebar into Settings.
+          Existing Ratecard component embedded directly; no logic changed.     */}
+      <div className="content-zone">
+        <div className="content-zone-header">
+          <span className="content-zone-title">Vendor billing &amp; rate cards</span>
+          <span className="content-zone-sub">Internal charge rates used for metering and chargeback calculations</span>
+        </div>
+        <Ratecard ratecards={ratecards} />
+      </div>
+
+      {/* ── Saved scenarios ───────────────────────────────────────────────────────
+          Phase 5: Saved Scenarios moved from primary sidebar into Settings.
+          Existing Scenarios component embedded directly; localStorage logic
+          preserved unchanged.                                                 */}
+      <div className="content-zone" style={{ marginBottom: 0 }}>
+        <div className="content-zone-header">
+          <span className="content-zone-title">Saved scenarios</span>
+          <span className="content-zone-sub">Save and restore named analysis states for planning and forecasting</span>
+        </div>
+        <Scenarios />
       </div>
     </>
   );

@@ -3,6 +3,11 @@
  *
  * Page component for saving, loading, and managing named analysis scenarios.
  * Presentational layer only — all logic in useScenarios hook.
+ *
+ * Hidden from primary nav during enterprise navigation consolidation.
+ * Scenario management is now surfaced via Settings › Saved scenarios.
+ * This component remains fully functional and is embedded in Settings.tsx.
+ * localStorage scenario logic is unchanged.
  */
 
 import React, { useState } from 'react';

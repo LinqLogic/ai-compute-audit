@@ -17,16 +17,18 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ page, setPage, exceptionCount, reviewCount }: SidebarProps) {
+  // Primary navigation — enterprise-consolidated view.
+  // Hidden from primary nav during enterprise navigation consolidation:
+  //   { id: 'departments',  label: 'Cost Centres',    icon: 'building' }  → visible in Overview dept breakdown
+  //   { id: 'ratecard',     label: 'Rate Cards',      icon: 'dollar'   }  → accessible via Settings › Vendor Billing
+  //   { id: 'scenarios',    label: 'Saved Scenarios', icon: 'database' }  → accessible via Settings › Saved Scenarios
+  //   { id: 'architecture', label: 'Architecture',    icon: 'layers'   }  → internal only, no production nav entry
   const navItems: NavItem[] = [
-    { id: 'overview',     label: 'Executive overview', icon: 'home'     },
-    { id: 'ledger',       label: 'Employee ledger',    icon: 'users',    badge: reviewCount || null, badgeColor: 'warn' },
-    { id: 'departments',  label: 'Cost centres',       icon: 'building' },
-    { id: 'close',        label: 'Monthly close',      icon: 'workflow' },
-    { id: 'exceptions',   label: 'Exceptions',         icon: 'alert',    badge: exceptionCount, badgeColor: 'danger' },
-    { id: 'ratecard',     label: 'Rate cards',         icon: 'dollar'   },
-    { id: 'scenarios',    label: 'Saved scenarios',    icon: 'database' },
-    { id: 'architecture', label: 'Architecture',       icon: 'layers'   },
-    { id: 'settings',     label: 'Settings',           icon: 'settings' },
+    { id: 'overview',   label: 'Executive Overview', icon: 'home'     },
+    { id: 'ledger',     label: 'Employee Ledger',    icon: 'users',   badge: reviewCount || null, badgeColor: 'warn' },
+    { id: 'exceptions', label: 'Exceptions',         icon: 'alert',   badge: exceptionCount, badgeColor: 'danger' },
+    { id: 'close',      label: 'Monthly Close',      icon: 'workflow' },
+    { id: 'settings',   label: 'Settings',           icon: 'settings' },
   ];
 
   return (

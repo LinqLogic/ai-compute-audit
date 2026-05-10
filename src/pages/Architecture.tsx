@@ -1,3 +1,6 @@
+// Hidden from primary nav during enterprise navigation consolidation.
+// Engineering / demo internals should not be exposed to production users.
+// Component preserved internally; re-enable via navItems in Sidebar.tsx if needed.
 import React from 'react';
 import { connectors } from '../data/mockData';
 

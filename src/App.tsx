@@ -16,14 +16,14 @@ import Settings      from './pages/Settings';
 import Scenarios     from './pages/Scenarios';
 
 const PAGE_TITLES: Record<string, string> = {
-  overview:     'Executive overview',
-  ledger:       'Employee ledger',
-  departments:  'Cost centers',
-  close:        'Monthly close',
+  overview:     'Executive Overview',
+  ledger:       'Employee Ledger',
+  departments:  'Cost Centres',     // hidden from primary nav — visible in Overview dept breakdown
+  close:        'Monthly Close',
   exceptions:   'Exceptions',
-  ratecard:     'Rate cards',
-  scenarios:    'Saved scenarios',
-  architecture: 'Architecture',
+  ratecard:     'Rate Cards',       // hidden from primary nav — accessible via Settings › Vendor Billing
+  scenarios:    'Saved Scenarios',  // hidden from primary nav — accessible via Settings › Saved Scenarios
+  architecture: 'Architecture',    // hidden from primary nav — internal only
   settings:     'Settings',
 };
 

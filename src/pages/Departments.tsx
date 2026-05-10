@@ -1,3 +1,6 @@
+// Hidden from primary nav during enterprise navigation consolidation.
+// Department / cost-centre analytics are surfaced on Executive Overview via
+// the "Department breakdown" zone.  This page is preserved for future use.
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Employee, DeptSpend } from '../data/types';
