@@ -20,7 +20,10 @@ import { normalizeWorkerRecords } from './normalization/normalizeWorkers';
 import { normalizeRateCardRecords } from './normalization/normalizeRateCards';
 
 import { validateCanonicalRecords } from './validation/ingestionValidator';
-import { mapWorkersToRows, mapUsageToRows, mapRateCardsToRows } from './mapping/mapCanonicalToDomain';
+import {
+  mapWorkersToRows, mapUsageToRows, mapRateCardsToRows,
+  inferWorkersFromUsageRecords,
+} from './mapping/mapCanonicalToDomain';
 import { createAuditEntry, IngestionAuditEntry } from './audit/ingestionAuditLog';
 
 import { WorkerRow, UsageEventRow, RateCardRow } from '../types/csvRows';
@@ -33,9 +36,15 @@ export type { IngestionAuditEntry } from './audit/ingestionAuditLog';
 // ─── Result type ──────────────────────────────────────────────────────────────
 
 export interface PipelineResult {
-  workers?:     WorkerRow[];
-  usageEvents?: UsageEventRow[];
-  rateCards?:   RateCardRow[];
+  workers?:         WorkerRow[];
+  usageEvents?:     UsageEventRow[];
+  rateCards?:       RateCardRow[];
+  /**
+   * Worker stubs synthesized from usage identity columns (email/name/dept).
+   * Only populated when schema=usage and at least one record has identity data.
+   * The hook applies these only when no real worker file was previously imported.
+   */
+  inferredWorkers?: WorkerRow[];
   meta:  IngestionMeta;
   audit: IngestionAuditEntry;
 }
@@ -82,9 +91,10 @@ export function runIngestionPipeline(
   const allWarnings: IngestionWarning[] = [];
   const allErrors:   string[]           = [];
 
-  let workers:     WorkerRow[]     | undefined;
-  let usageEvents: UsageEventRow[] | undefined;
-  let rateCards:   RateCardRow[]   | undefined;
+  let workers:         WorkerRow[]     | undefined;
+  let usageEvents:     UsageEventRow[] | undefined;
+  let rateCards:       RateCardRow[]   | undefined;
+  let inferredWorkers: WorkerRow[]     | undefined;
   let rowsOut = 0;
 
   if (schema === 'workers') {
@@ -107,8 +117,14 @@ export function runIngestionPipeline(
     allWarnings.push(...adapted.warnings, ...normalized.warnings);
     allErrors.push(...validated.errors);
 
-    usageEvents = mapUsageToRows(validated.records as CanonicalUsageRecord[]);
+    const canonicalRecords = validated.records as CanonicalUsageRecord[];
+    usageEvents = mapUsageToRows(canonicalRecords);
     rowsOut = usageEvents.length;
+
+    // Synthesize worker stubs when usage records carry identity data.
+    // The hook (useEnterpriseIntake) decides whether to apply them.
+    const inferred = inferWorkersFromUsageRecords(canonicalRecords);
+    if (inferred.length > 0) inferredWorkers = inferred;
 
   } else if (schema === 'rate_cards') {
     const adapted    = adaptGenericRateCards(rawRows);
@@ -139,7 +155,7 @@ export function runIngestionPipeline(
     processedAt: new Date().toISOString(),
   };
 
-  return { workers, usageEvents, rateCards, meta, audit: createAuditEntry(meta) };
+  return { workers, usageEvents, rateCards, inferredWorkers, meta, audit: createAuditEntry(meta) };
 }
 
 // ─── File-based entry point ───────────────────────────────────────────────────

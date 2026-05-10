@@ -110,7 +110,7 @@ export interface UseEnterpriseIntakeReturn {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
-  const { applyImport, resetToMock } = useImport();
+  const { applyImport, applyImportIfEmpty, resetToMock } = useImport();
 
   const [results,      setResults]      = useState<IntakeResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -126,12 +126,32 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
     try {
       // 1. Enterprise ingestion pipeline (handles vendor exports + standard CSVs)
       const pipeline = await runIngestionPipelineFromFile(file);
-      const { meta, workers, usageEvents, rateCards } = pipeline;
+      const { meta, workers, usageEvents, rateCards, inferredWorkers } = pipeline;
 
       if (workers !== undefined || usageEvents !== undefined || rateCards !== undefined) {
-        if (workers !== undefined)     applyImport({ workers });
+        console.debug('[intake] pipeline mapped records:', {
+          workers:         workers?.length,
+          usageEvents:     usageEvents?.length,
+          rateCards:       rateCards?.length,
+          inferredWorkers: inferredWorkers?.length,
+          schema:          meta.schema,
+          vendor:          meta.vendor,
+        });
+
+        // Apply domain records — only set keys that have real data, never wipe
+        // a domain that wasn't covered by this file.
+        if (workers     !== undefined) applyImport({ workers });
         if (usageEvents !== undefined) applyImport({ usageEvents });
-        if (rateCards !== undefined)   applyImport({ rateCards });
+        if (rateCards   !== undefined) applyImport({ rateCards });
+
+        // Apply inferred worker stubs for usage-only files so the employee join
+        // in buildEmployeesFromCsv resolves correctly.  Uses applyImportIfEmpty
+        // so the check happens atomically against prev state — safe even when
+        // multiple files are processed in the same batch.
+        if (inferredWorkers && inferredWorkers.length > 0 && workers === undefined) {
+          console.debug('[intake] applying', inferredWorkers.length, 'inferred worker stubs (if no real workers exist)');
+          applyImportIfEmpty({ workers: inferredWorkers });
+        }
 
         const isAdapted = meta.vendor !== 'generic_csv' && meta.vendor !== 'unknown';
         return {

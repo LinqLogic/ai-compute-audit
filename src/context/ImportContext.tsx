@@ -35,6 +35,14 @@ export interface ImportContextValue {
   /** Merge new raw data into import state (partial update OK). */
   applyImport: (next: Partial<ImportedDataState>) => void;
 
+  /**
+   * Like applyImport, but only sets a domain key when it is currently empty
+   * (null or zero-length). Safe to call from async processing loops because
+   * the check happens inside the setImported functional update against the
+   * current prev state, avoiding stale-closure race conditions.
+   */
+  applyImportIfEmpty: (next: Partial<ImportedDataState>) => void;
+
   /** Clear all import data and errors, returning to mock-data fallback. */
   resetToMock: () => void;
 
@@ -70,6 +78,16 @@ export function ImportProvider({ children }: { children: ReactNode }) {
     setImported(prev => ({ ...prev, ...next }));
   }, []);
 
+  const applyImportIfEmpty = useCallback((next: Partial<ImportedDataState>) => {
+    setImported(prev => {
+      const merged = { ...prev };
+      if (next.workers     !== undefined && (prev.workers?.length     ?? 0) === 0) merged.workers     = next.workers;
+      if (next.usageEvents !== undefined && (prev.usageEvents?.length ?? 0) === 0) merged.usageEvents = next.usageEvents;
+      if (next.rateCards   !== undefined && (prev.rateCards?.length   ?? 0) === 0) merged.rateCards   = next.rateCards;
+      return merged;
+    });
+  }, []);
+
   const resetToMock = useCallback(() => {
     setImported(EMPTY_STATE);
     setImportErrors([]);
@@ -89,6 +107,7 @@ export function ImportProvider({ children }: { children: ReactNode }) {
       importErrors,
       isUsingImport,
       applyImport,
+      applyImportIfEmpty,
       resetToMock,
       pushErrors,
       clearErrors,
