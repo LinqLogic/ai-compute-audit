@@ -59,6 +59,31 @@ export interface Exception {
   center: string;
 }
 
+export interface GovernanceException {
+  id: string;
+  title: string;
+  entityType: 'employee' | 'department' | 'organization';
+  entityId: string;
+  entityName: string;
+  department: string;
+  costCenter: string;
+  manager: string;
+  severity: 'critical' | 'high' | 'medium';
+  ruleId: string;
+  ruleName: string;
+  inputData: Array<{ label: string; value: string }>;
+  calculations: Array<{ label: string; value: string }>;
+  thresholdComparison: {
+    metricLabel: string;
+    actual: string;
+    threshold: string;
+    exceeded: boolean;
+  };
+  governanceInterpretation: string;
+  recommendedActions: string[];
+  sortKey: number;
+}
+
 export interface CloseStep {
   label: string;
   done: boolean;
