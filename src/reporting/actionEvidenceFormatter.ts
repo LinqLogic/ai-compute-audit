@@ -7,6 +7,9 @@
 
 import { ActionItem, ActionSeverity } from '../actionEngine/types';
 import { fmtK$ } from '../actionEngine/financialCalculations';
+import { ACTION_ENGINE_CONFIG } from '../actionEngine/config';
+
+const MAX_EXPORT = ACTION_ENGINE_CONFIG.export.maxExecutiveItems;
 
 // ─── Label formatters ─────────────────────────────────────────────────────────
 
@@ -16,8 +19,9 @@ export function formatSeverityLabel(severity: ActionSeverity): string {
 
 export function formatConfidenceLabel(confidence: number): string {
   if (confidence >= 80) return `${confidence}% · High confidence`;
-  if (confidence >= 60) return `${confidence}% · Moderate confidence`;
-  return `${confidence}% · Indicative`;
+  if (confidence >= 65) return `${confidence}% · Moderate confidence`;
+  if (confidence >= 55) return `${confidence}% · Indicative`;
+  return `${confidence}% · Estimated`;
 }
 
 export function formatAnnualSavings(amount: number): string {
@@ -78,13 +82,17 @@ export function buildActionEngineSummary(items: ActionItem[]): ActionEngineSumma
 export const ACTION_ITEMS_CSV_HEADER =
   'id,title,type,severity,confidence,priority_score,' +
   'annual_savings,monthly_savings,department,cost_center,' +
-  'owner,recommended_action,status,period';
+  'owner,recommended_action,financial_context,status,period';
 
 function escapeCsv(s: string): string {
   return `"${s.replace(/"/g, "'")}"`;
 }
 
 export function actionItemToCsvRow(item: ActionItem): string {
+  const financialContext = [item.inputDataSummary, item.calculationSummary]
+    .filter(Boolean)
+    .join(' · ');
+
   return [
     item.id,
     escapeCsv(item.title),
@@ -98,16 +106,27 @@ export function actionItemToCsvRow(item: ActionItem): string {
     item.costCenter,
     escapeCsv(item.ownerSuggestion),
     escapeCsv(item.recommendedAction),
+    escapeCsv(financialContext),
     item.status,
     item.periodKey,
   ].join(',');
 }
 
-export function exportActionItemsCsv(items: ActionItem[]): void {
-  const rows = [ACTION_ITEMS_CSV_HEADER, ...items.map(actionItemToCsvRow)].join('\n');
-  const blob = new Blob([rows], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'action-items.csv'; a.click();
+/**
+ * Export action items as CSV, capped at the executive limit (default: top 25
+ * by priority score). Items are assumed to already be sorted descending.
+ */
+export function exportActionItemsCsv(
+  items: ActionItem[],
+  limit: number = MAX_EXPORT,
+): void {
+  const top      = items.slice(0, limit);
+  const rows     = [ACTION_ITEMS_CSV_HEADER, ...top.map(actionItemToCsvRow)].join('\n');
+  const blob     = new Blob([rows], { type: 'text/csv' });
+  const url      = URL.createObjectURL(blob);
+  const a        = document.createElement('a');
+  a.href         = url;
+  a.download     = `action-items-top${top.length}.csv`;
+  a.click();
   URL.revokeObjectURL(url);
 }

@@ -1,17 +1,17 @@
 /**
  * modelOptimizationDetector.ts
  *
- * Identifies employees whose spend and multi-provider usage pattern suggests
- * an opportunity to shift workloads from premium model tiers to cost-optimised
- * alternatives.
+ * Identifies employees whose AI spend pattern suggests an opportunity to
+ * route workloads to cost-efficient model tiers without reducing capability.
  *
- * Detection criteria:
- *   - Monthly spend ≥ mediumSpendThreshold ($200)
- *   - Uses ≥ multiProviderCount (2) different AI providers
- *   - At least one provider is a premium API provider
+ * Two detection paths:
+ *   Primary   — spend ≥ $200/month AND apps include a known premium provider
+ *               (case-insensitive match; confidence = 70)
+ *   Fallback  — spend ≥ $500/month with no provider data available
+ *               (confidence = 50; labelled as indicative)
  *
- * Conservative savings assumption: 30% of qualifying spend could be migrated
- * to cheaper model tiers. This is deliberately understated.
+ * Premium provider matching is case-insensitive and keyword-aware so that
+ * entries like 'openai', 'OpenAI', 'azure openai' all resolve.
  *
  * Pure function — same input always produces same output.
  */
@@ -24,15 +24,20 @@ import { computePriorityScore } from '../priorityScoring';
 import { interpretModelOptimization } from '../governanceInterpreter';
 
 const MC   = CFG.modelOptimization;
-const CONF = CFG.confidence.fromAggregated;
+const CONF = CFG.confidence;
 
-// API-priced providers (token-based billing) that have premium tiers
-const PREMIUM_PROVIDERS = new Set([
-  'OpenAI', 'Anthropic', 'Google Vertex', 'Vertex', 'AWS Bedrock', 'Bedrock',
-]);
+// Premium-tier providers — case-insensitive keyword matching
+const PREMIUM_KEYWORDS = [
+  'openai', 'anthropic', 'claude', 'gpt',
+  'vertex', 'gemini', 'bedrock', 'azure openai',
+  'mistral', 'cohere', 'perplexity',
+];
 
 function hasPremiumProvider(apps: string[]): boolean {
-  return apps.some(a => PREMIUM_PROVIDERS.has(a));
+  return apps.some(a => {
+    const lower = a.toLowerCase().trim();
+    return PREMIUM_KEYWORDS.some(kw => lower.includes(kw));
+  });
 }
 
 function currentPeriod(): string {
@@ -53,23 +58,38 @@ export function detectModelOptimizationOpportunities(employees: Employee[]): Act
 
   for (const emp of employees) {
     if (emp.spend < MC.mediumSpendThreshold) continue;
-    if (emp.apps.length < MC.multiProviderCount) continue;
-    if (!hasPremiumProvider(emp.apps)) continue;
 
-    const severity = classifySeverity(emp.spend);
-    const calc     = calcModelOptimization(emp.spend);
-    const interp   = interpretModelOptimization(
-      emp.name, emp.spend, emp.apps,
+    const hasAppsData   = emp.apps.length > 0;
+    const isPremiumUser = hasAppsData && hasPremiumProvider(emp.apps);
+    const isHighSpend   = emp.spend >= MC.highSpendThreshold;
+
+    // Qualify: premium provider detected, OR high spend without provider data
+    const primaryPath  = isPremiumUser;
+    const fallbackPath = !hasAppsData && isHighSpend;
+
+    if (!primaryPath && !fallbackPath) continue;
+
+    const confidence = primaryPath ? CONF.fromAggregated : CONF.fromInferred;
+    const severity   = classifySeverity(emp.spend);
+    const calc       = calcModelOptimization(emp.spend);
+    const providers  = hasAppsData ? emp.apps : ['(tool data unavailable)'];
+    const interp     = interpretModelOptimization(
+      emp.name, emp.spend, providers,
       calc.estimatedAnnualSavings, calc.savingsRate, severity,
+      !primaryPath,
     );
-    const priorityScore = computePriorityScore(severity, CONF, calc.estimatedAnnualSavings, 0.9);
+    const priorityScore = computePriorityScore(severity, confidence, calc.estimatedAnnualSavings, 0.9);
+
+    const titleSuffix = primaryPath
+      ? `${fmtK$(calc.estimatedAnnualSavings)}/yr via model-tier optimisation`
+      : `high AI spend (${fmtK$(calc.estimatedAnnualSavings)}/yr optimisation opportunity)`;
 
     results.push({
       id:                      `MO::${emp.eid}`,
       type:                    'model_optimization',
-      title:                   `${emp.name} — ${fmtK$(calc.estimatedAnnualSavings)}/yr potential via model-tier shift`,
+      title:                   `${emp.name} — ${titleSuffix}`,
       severity,
-      confidence:              CONF,
+      confidence,
       priorityScore,
       financialImpact:         emp.spend,
       estimatedMonthlySavings: calc.estimatedMonthlySavings,
@@ -78,19 +98,23 @@ export function detectModelOptimizationOpportunities(employees: Employee[]): Act
       costCenter:              emp.center,
       ownerSuggestion:         interp.ownerSuggestion,
       evidence: [
-        `Total AI spend: ${fmt$(emp.spend)}/month across ${emp.apps.length} providers`,
-        `Providers in use: ${emp.apps.join(', ')}`,
-        `Conservative ${(calc.savingsRate * 100).toFixed(0)}% of spend estimated as optimisable`,
+        `Total AI spend: ${fmt$(emp.spend)}/month`,
+        hasAppsData
+          ? `Providers in use: ${emp.apps.join(', ')}`
+          : 'Provider data not available for this employee',
+        `Conservative ${(calc.savingsRate * 100).toFixed(0)}% optimisation rate applied`,
+        `Est. annual saving: ${fmtK$(calc.estimatedAnnualSavings)}`,
       ],
       inputDataSummary:
-        `${emp.name} spend: ${fmt$(emp.spend)}/month · Providers: ${emp.apps.join(', ')}`,
+        `${emp.name} spend: ${fmt$(emp.spend)}/month` +
+        (hasAppsData ? ` · Providers: ${emp.apps.join(', ')}` : ' · Provider data unavailable'),
       calculationSummary:
-        `Savings = ${fmt$(emp.spend)} × ${(calc.savingsRate * 100).toFixed(0)}%` +
+        `Saving = ${fmt$(emp.spend)} × ${(calc.savingsRate * 100).toFixed(0)}%` +
         ` = ${fmt$(calc.estimatedMonthlySavings)}/month · Annual: ${fmtK$(calc.estimatedAnnualSavings)}`,
       thresholdComparison: {
-        metric:    'Monthly spend (optimisation candidate)',
+        metric:    'Monthly AI spend vs optimisation threshold',
         actual:    fmt$(emp.spend),
-        threshold: `≥ ${fmt$(MC.mediumSpendThreshold)}/month with ${MC.multiProviderCount}+ providers`,
+        threshold: `≥ ${fmt$(primaryPath ? MC.mediumSpendThreshold : MC.highSpendThreshold)}/month`,
         exceeded:  true,
       },
       governanceInterpretation: interp.governanceInterpretation,

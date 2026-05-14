@@ -11,18 +11,24 @@
 export const ACTION_ENGINE_CONFIG = {
 
   spendSpike: {
-    // Thresholds applied to (spend - allocation) / allocation
-    allocationVarianceMedium:   0.25,   // 25%
-    allocationVarianceHigh:     0.75,   // 75%
-    allocationVarianceCritical: 1.50,   // 150%
+    // Thresholds applied to (spend − allocation) / allocation
+    // Raised from 0.25/0.75/1.50 → only flag meaningfully material deviations
+    allocationVarianceMedium:   0.50,   // 50% above allocation
+    allocationVarianceHigh:     1.50,   // 150% above allocation
+    allocationVarianceCritical: 3.00,   // 300% above allocation
 
-    // Thresholds applied to (spend - peer_median) / peer_median
-    peerMedianDevMedium:   0.35,        // 35%
-    peerMedianDevHigh:     0.75,        // 75%
-    peerMedianDevCritical: 1.50,        // 150%
+    // Thresholds applied to (spend − peer_median) / peer_median
+    // Raised from 0.35/0.75/1.50 → peer comparison is noisier, needs higher bar
+    peerMedianDevMedium:   0.75,        // 75% above dept peer median
+    peerMedianDevHigh:     1.50,        // 150% above dept peer median
+    peerMedianDevCritical: 3.00,        // 300% above dept peer median
 
     // Minimum peer group size for peer-median comparison to be meaningful
     minPeerGroupSize: 3,
+
+    // Materiality floors — suppress items below these dollar amounts
+    minimumAnnualSavings:    2_400,     // $2,400/yr minimum (~$200/month)
+    minimumOvreageMonthly:   100,       // $100/month minimum overage
 
     // Conservative fraction of overage assumed recoverable
     savingsRecoveryRate: 0.80,          // 80%
@@ -34,13 +40,23 @@ export const ACTION_ENGINE_CONFIG = {
     // Below this prompt count/month → considered underutilized for a seat tool
     lowUsagePromptThreshold: 1_000,
 
-    // Monthly seat licence costs by app name (must match Employee.apps values exactly)
+    // Monthly seat licence costs by app name.
+    // Matching is case-insensitive — add canonical names and common variants.
     seatCostByApp: {
-      'Copilot':                   30,
-      'Microsoft Copilot':         30,
-      'Copilot for M365':          30,
-      'GitHub Copilot':            39,
-      'GitHub Copilot Enterprise': 39,
+      'copilot':                         30,
+      'microsoft copilot':               30,
+      'copilot for m365':                30,
+      'm365 copilot':                    30,
+      'microsoft 365 copilot':           30,
+      'github copilot':                  19,
+      'github copilot enterprise':       39,
+      'github copilot business':         19,
+      'cursor':                          20,
+      'cursor pro':                      40,
+      'tabnine':                         15,
+      'tabnine enterprise':              39,
+      'codewhisperer':                   19,
+      'amazon codewhisperer':            19,
     } as Record<string, number>,
 
     // Only flag an item if estimated monthly waste exceeds this floor
@@ -50,23 +66,19 @@ export const ACTION_ENGINE_CONFIG = {
   },
 
   modelOptimization: {
-    // Conservative fraction of qualifying spend that could shift to cheaper models
-    conservativeSavingsRate: 0.30,      // 30%
+    // Conservative fraction of qualifying spend that could shift to cheaper tiers
+    conservativeSavingsRate: 0.25,      // 25% (deliberately understated)
 
     // Monthly spend thresholds for severity classification
     mediumSpendThreshold:   200,        // $200/month
     highSpendThreshold:     500,        // $500/month
     criticalSpendThreshold: 800,        // $800/month
 
-    // Employee must use at least this many providers to qualify
-    // (multi-provider usage suggests premium + cheaper mix opportunity)
-    multiProviderCount: 2,
-
     annualizationMonths: 12,
   },
 
   budgetOverrun: {
-    // Thresholds applied to (spend - budget) / budget
+    // Thresholds applied to (spend − budget) / budget
     mediumThreshold:   0.10,            // 10%
     highThreshold:     0.25,            // 25%
     criticalThreshold: 0.50,            // 50%
@@ -100,9 +112,14 @@ export const ACTION_ENGINE_CONFIG = {
   },
 
   confidence: {
-    fromRawEvents:   90,   // Raw usage_events.csv imported
+    fromRawEvents:   90,   // Raw usage_events.csv imported — highest fidelity
     fromAggregated:  70,   // Aggregated Employee domain objects
-    fromInferred:    50,   // Synthesized / estimated
+    fromInferred:    50,   // Synthesized or spend-only inference
+  },
+
+  export: {
+    // Default cap for executive-level CSV export
+    maxExecutiveItems: 25,
   },
 
 } as const;

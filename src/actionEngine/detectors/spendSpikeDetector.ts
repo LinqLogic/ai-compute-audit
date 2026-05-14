@@ -5,7 +5,14 @@
  *   (a) their individual allocation  — always available
  *   (b) their department peer median — when ≥ minPeerGroupSize peers exist
  *
- * Deduplicates: one ActionItem per employee per dimension.
+ * Materiality gates:
+ *   - Minimum annual savings: $2,400 (config.minimumAnnualSavings)
+ *   - Minimum monthly overage: $100  (config.minimumOvreageMonthly)
+ *
+ * Dynamic confidence:
+ *   - Allocation comparison: 70 (explicit allocation data)
+ *   - Peer comparison: 58–75 depending on peer group size
+ *
  * Pure function — same input always produces same output.
  */
 
@@ -14,13 +21,13 @@ import { ActionItem, ActionSeverity } from '../types';
 import { ACTION_ENGINE_CONFIG as CFG } from '../config';
 import {
   calcSpendSpike, arrMedian,
-  fmt$, fmtPct,
+  fmt$, fmtK$, fmtVariance,
 } from '../financialCalculations';
 import { computePriorityScore } from '../priorityScoring';
 import { interpretSpendSpike } from '../governanceInterpreter';
 
 const SC   = CFG.spendSpike;
-const CONF = CFG.confidence.fromAggregated;
+const CONF = CFG.confidence;
 
 function currentPeriod(): string {
   return new Date().toISOString().slice(0, 7);
@@ -40,11 +47,20 @@ function classifyPeerSeverity(devFrac: number): ActionSeverity | null {
   return null;
 }
 
+/** Confidence scales with peer group size — larger groups produce more reliable medians. */
+function peerConfidence(peerCount: number): number {
+  if (peerCount >= 15) return 75;
+  if (peerCount >= 8)  return 70;
+  if (peerCount >= 5)  return 65;
+  return 58;
+}
+
 function buildItem(
   id: string,
   title: string,
   emp: Employee,
   severity: ActionSeverity,
+  confidence: number,
   calc: ReturnType<typeof calcSpendSpike>,
   interp: ReturnType<typeof interpretSpendSpike>,
   evidenceExtra: string[],
@@ -59,8 +75,8 @@ function buildItem(
     type:                    'spend_spike',
     title,
     severity,
-    confidence:              CONF,
-    priorityScore:           computePriorityScore(severity, CONF, calc.estimatedAnnualSavings),
+    confidence,
+    priorityScore:           computePriorityScore(severity, confidence, calc.estimatedAnnualSavings),
     financialImpact:         calc.overage,
     estimatedMonthlySavings: calc.estimatedMonthlySavings,
     estimatedAnnualSavings:  calc.estimatedAnnualSavings,
@@ -72,7 +88,7 @@ function buildItem(
     calculationSummary:      calcSummary,
     thresholdComparison: {
       metric:    thresholdLabel,
-      actual:    fmtPct(calc.variancePct),
+      actual:    fmtVariance(calc.variancePct),
       threshold,
       exceeded:  true,
     },
@@ -100,30 +116,38 @@ export function detectSpendSpikes(employees: Employee[]): ActionItem[] {
     const severity     = classifyAllocationSeverity(varianceFrac);
     if (!severity) continue;
 
+    const calc = calcSpendSpike(emp.spend, emp.alloc);
+
+    // Materiality gates
+    if (calc.overage              < SC.minimumOvreageMonthly) continue;
+    if (calc.estimatedAnnualSavings < SC.minimumAnnualSavings)  continue;
+
     const id = `SS::${emp.eid}::alloc`;
     if (seen.has(id)) continue;
     seen.add(id);
 
-    const calc   = calcSpendSpike(emp.spend, emp.alloc);
     const interp = interpretSpendSpike(
       emp.name, 'employee', emp.spend, emp.alloc,
       calc.variancePct, calc.estimatedAnnualSavings, severity,
     );
+    const confidence = CONF.fromAggregated;
+    const threshold  = severity === 'critical' ? '> 300%' : severity === 'high' ? '> 150%' : '> 50%';
 
     results.push(buildItem(
       id,
-      `${emp.name} — spend ${fmtPct(emp.variance)} over allocation`,
-      emp, severity, calc, interp,
+      `${emp.name} — spend ${fmtVariance(emp.variance)} above allocation`,
+      emp, severity, confidence, calc, interp,
       [
         `Actual spend: ${fmt$(emp.spend)}/month`,
-        `Allocation: ${fmt$(emp.alloc)}/month`,
+        `Approved allocation: ${fmt$(emp.alloc)}/month`,
         `Monthly overage: ${fmt$(calc.overage)}`,
+        `Est. recoverable annual: ${fmtK$(calc.estimatedAnnualSavings)}`,
       ],
-      `${emp.name} spend: ${fmt$(emp.spend)} · Allocation: ${fmt$(emp.alloc)} · Variance: ${fmtPct(emp.variance)}`,
+      `${emp.name} spend: ${fmt$(emp.spend)} · Allocation: ${fmt$(emp.alloc)} · Variance: ${fmtVariance(emp.variance)}`,
       `Overage = ${fmt$(emp.spend)} − ${fmt$(emp.alloc)} = ${fmt$(calc.overage)}/month` +
-        ` · Savings = ${fmt$(calc.overage)} × ${(SC.savingsRecoveryRate * 100).toFixed(0)}% × 12 = ${fmt$(calc.estimatedAnnualSavings)}/yr`,
-      'Spend variance vs allocation',
-      severity === 'critical' ? '> 150%' : severity === 'high' ? '> 75%' : '> 25%',
+        ` · Recoverable = ${fmt$(calc.overage)} × ${(SC.savingsRecoveryRate * 100).toFixed(0)}% × 12 = ${fmtK$(calc.estimatedAnnualSavings)}/yr`,
+      'Spend variance vs approved allocation',
+      threshold,
       period,
     ));
   }
@@ -147,29 +171,35 @@ export function detectSpendSpikes(employees: Employee[]): ActionItem[] {
       const severity = classifyPeerSeverity(devFrac);
       if (!severity) continue;
 
+      const calc = calcSpendSpike(emp.spend, medianSpend);
+
+      // Materiality gates
+      if (calc.overage              < SC.minimumOvreageMonthly) continue;
+      if (calc.estimatedAnnualSavings < SC.minimumAnnualSavings)  continue;
+
       const id = `SS::${emp.eid}::peer`;
       if (seen.has(id)) continue;
       seen.add(id);
 
-      const calc   = calcSpendSpike(emp.spend, medianSpend);
-      const interp = interpretSpendSpike(
+      const confidence = peerConfidence(peers.length);
+      const interp     = interpretSpendSpike(
         emp.name, 'employee', emp.spend, medianSpend,
         calc.variancePct, calc.estimatedAnnualSavings, severity,
       );
-      const threshold = severity === 'critical' ? '> 150%' : severity === 'high' ? '> 75%' : '> 35%';
+      const threshold = severity === 'critical' ? '> 300%' : severity === 'high' ? '> 150%' : '> 75%';
 
       results.push(buildItem(
         id,
-        `${emp.name} — ${fmtPct(devFrac * 100)} above ${dept} peer median`,
-        emp, severity, calc, interp,
+        `${emp.name} — spend ${fmtVariance(devFrac * 100)} above ${dept} peer median`,
+        emp, severity, confidence, calc, interp,
         [
           `${emp.name} spend: ${fmt$(emp.spend)}/month`,
           `${dept} peer median: ${fmt$(medianSpend)}/month (n=${peers.length})`,
           `Excess vs peers: ${fmt$(calc.overage)}/month`,
+          `Est. recoverable annual: ${fmtK$(calc.estimatedAnnualSavings)}`,
         ],
         `${emp.name}: ${fmt$(emp.spend)} · ${dept} peer median: ${fmt$(medianSpend)} (n=${peers.length})`,
-        `Excess = ${fmt$(emp.spend)} − ${fmt$(medianSpend)} = ${fmt$(calc.overage)}/month` +
-          ` · Annual: ${fmt$(calc.estimatedAnnualSavings)}`,
+        `Excess = ${fmt$(emp.spend)} − ${fmt$(medianSpend)} = ${fmt$(calc.overage)}/month · Annual: ${fmtK$(calc.estimatedAnnualSavings)}`,
         `Spend vs ${dept} peer median`,
         threshold,
         period,

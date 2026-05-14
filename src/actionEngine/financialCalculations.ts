@@ -147,3 +147,18 @@ export function fmtK$(n: number): string {
 export function fmtPct(n: number, decimals = 1): string {
   return (n >= 0 ? '+' : '') + n.toFixed(decimals) + '%';
 }
+
+/**
+ * Executive-safe variance display.
+ * Caps at 500% — beyond that, switches to multiplier language to avoid
+ * alarming but uninformative percentage strings like '+224,965%'.
+ * Examples: '+45.0%', '+185.0%', '~23× above benchmark'
+ */
+export function fmtVariance(variancePct: number): string {
+  if (!isFinite(variancePct) || variancePct < 0) return 'N/A';
+  if (variancePct > 500) {
+    const times = Math.round(variancePct / 100 + 1);
+    return `~${times.toLocaleString('en-US')}× above benchmark`;
+  }
+  return fmtPct(variancePct);
+}
