@@ -3,6 +3,15 @@ import { GovernanceException } from '../data/types';
 import { useDomain } from '../context/DomainContext';
 import { generateGovernanceExceptions } from '../analytics/governanceExceptions';
 import Icon from '../components/Icon';
+import { generateActionItems } from '../actionEngine/generateActionItems';
+import { ActionItem } from '../actionEngine/types';
+import {
+  buildActionEngineSummary,
+  formatSeverityLabel,
+  formatActionType,
+  exportActionItemsCsv,
+} from '../reporting/actionEvidenceFormatter';
+import { fmtK$ } from '../actionEngine/financialCalculations';
 
 type ActionType = 'approve' | 'escalate' | 'request';
 
@@ -251,6 +260,138 @@ function ExceptionCard({ ex, requested, onAction }: {
   );
 }
 
+// ─── Action item severity helpers ────────────────────────────────────────────
+
+function aiSevColor(s: ActionItem['severity']): string {
+  if (s === 'critical') return '#ef4444';
+  if (s === 'high')     return '#f59e0b';
+  if (s === 'medium')   return '#3b82f6';
+  return '#6b7280';
+}
+
+function aiSevBadge(s: ActionItem['severity']): string {
+  if (s === 'critical') return 'badge-danger';
+  if (s === 'high')     return 'badge-warn';
+  if (s === 'medium')   return 'badge-info';
+  return 'badge';
+}
+
+// ─── Action item card ─────────────────────────────────────────────────────────
+
+function ActionItemCard({ item, onDismiss }: {
+  item: ActionItem;
+  onDismiss: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const color = aiSevColor(item.severity);
+
+  return (
+    <div className="exception-item" style={{ borderLeft: `3px solid ${color}`, alignItems: 'flex-start', marginBottom: 10 }}>
+      <div className="exc-icon" style={{ background: color + '1a', flexShrink: 0, marginTop: 2 }}>
+        <Icon name="alert" size={14} color={color} />
+      </div>
+
+      <div className="exc-meta" style={{ flex: 1, minWidth: 0 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4, gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', gap: 5, marginBottom: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className={`badge ${aiSevBadge(item.severity)}`} style={{ fontSize: 10 }}>
+                {formatSeverityLabel(item.severity)}
+              </span>
+              <span className="badge" style={{ background: 'var(--bg-surface-3)', color: 'var(--text-secondary)', fontSize: 10 }}>
+                {formatActionType(item.type)}
+              </span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                {item.confidence}% confidence · score {item.priorityScore}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+              {item.title}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#22c55e', lineHeight: 1 }}>
+              {fmtK$(item.estimatedAnnualSavings)}
+              <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-muted)' }}>/yr</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+              {fmtK$(item.estimatedMonthlySavings)}/mo
+            </div>
+          </div>
+        </div>
+
+        {/* Evidence block */}
+        <div style={{
+          background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+          borderRadius: 6, padding: '8px 12px', marginBottom: 8, fontSize: 11,
+        }}>
+          <div style={{ color: 'var(--text-muted)', marginBottom: 3 }}>{item.inputDataSummary}</div>
+          <div style={{ color: 'var(--text-secondary)', marginBottom: 5 }}>{item.calculationSummary}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--text-muted)' }}>{item.thresholdComparison.metric}:</span>
+            <span style={{ color, fontWeight: 700 }}>{item.thresholdComparison.actual}</span>
+            <span style={{ color: 'var(--text-muted)' }}>vs threshold</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{item.thresholdComparison.threshold}</span>
+            <span style={{ color, fontWeight: 600 }}>✕ Exceeded</span>
+          </div>
+        </div>
+
+        {/* Governance interpretation */}
+        <div className="exc-desc" style={{ marginBottom: 8, lineHeight: 1.6 }}>
+          {item.governanceInterpretation}
+        </div>
+
+        {/* Recommended action */}
+        <div style={{
+          background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)',
+          borderRadius: 6, padding: '7px 12px', marginBottom: 10, fontSize: 12,
+          color: 'var(--text-secondary)',
+        }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Recommended: </span>
+          {item.recommendedAction}
+        </div>
+
+        {/* Evidence bullets (expandable) */}
+        {item.evidence.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <button
+              onClick={() => setExpanded(v => !v)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 11, color: 'var(--text-muted)', padding: 0, fontFamily: 'inherit',
+              }}
+            >
+              {expanded ? '▾ Hide evidence' : '▸ Show evidence'} ({item.evidence.length} data points)
+            </button>
+            {expanded && (
+              <div style={{ marginTop: 6 }}>
+                {item.evidence.map((e, i) => (
+                  <div key={i} style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>· {e}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="exc-actions">
+          <button
+            className="exc-btn"
+            style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-strong)' }}
+            onClick={() => onDismiss(item.id)}
+          >
+            Dismiss
+          </button>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', alignSelf: 'center' }}>
+            Owner: {item.ownerSuggestion}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page component ───────────────────────────────────────────────────────────
 
 export default function Exceptions() {
@@ -268,6 +409,8 @@ export default function Exceptions() {
   const [toast,          setToast]          = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [deptFilter,     setDeptFilter]     = useState<string>('all');
+  const [view,           setView]           = useState<'compliance' | 'actions'>('compliance');
+  const [dismissedAI,    setDismissedAI]    = useState<string[]>([]);
 
   const depts = useMemo(
     () => Array.from(new Set(allExceptions.map(e => e.department)))
@@ -281,6 +424,19 @@ export default function Exceptions() {
     if (deptFilter     !== 'all' && ex.department !== deptFilter)    return false;
     return true;
   }), [allExceptions, severityFilter, deptFilter]);
+
+  const actionItems = useMemo(
+    () => generateActionItems(employees, deptSpend),
+    [employees, deptSpend],
+  );
+  const visibleActions = useMemo(
+    () => actionItems.filter(i => !dismissedAI.includes(i.id)),
+    [actionItems, dismissedAI],
+  );
+  const aiSummary = useMemo(
+    () => buildActionEngineSummary(visibleActions),
+    [visibleActions],
+  );
 
   const open   = filtered.filter(e => !resolved.includes(e.id) && !escalated.includes(e.id));
   const closed = filtered.filter(e => resolved.includes(e.id));
@@ -348,21 +504,52 @@ export default function Exceptions() {
       {/* Header bar */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)' }}>
-            Governance exception queue
+          {/* View toggle tabs */}
+          <div style={{ display: 'flex', gap: 2, marginBottom: 8, background: 'var(--bg-surface-2)', borderRadius: 8, padding: 3, width: 'fit-content' }}>
+            {(['compliance', 'actions'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={{
+                  padding: '5px 14px', fontSize: 12, borderRadius: 6,
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+                  background:  view === v ? 'var(--bg-surface)'   : 'transparent',
+                  color:       view === v ? 'var(--text-primary)'  : 'var(--text-secondary)',
+                  boxShadow:   view === v ? '0 1px 3px rgba(0,0,0,.1)' : 'none',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {v === 'compliance' ? 'Compliance' : 'Action Items'}
+                {v === 'actions' && aiSummary.openItems > 0 && (
+                  <span style={{
+                    marginLeft: 6, background: '#ef4444', color: '#fff',
+                    borderRadius: 10, padding: '1px 5px', fontSize: 10, fontWeight: 700,
+                  }}>
+                    {aiSummary.openItems}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-            {open.length} open · {closed.length} resolved
-            {escCount > 0 ? ` · ${escCount} escalated to CFO` : ''}
-            {' · mathematically derived from current dataset'}
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            {view === 'compliance'
+              ? `${open.length} open · ${closed.length} resolved${escCount > 0 ? ` · ${escCount} escalated to CFO` : ''} · mathematically derived`
+              : `${aiSummary.openItems} open · ${fmtK$(aiSummary.totalAnnualSavings)}/yr recoverable · AI financial engine`}
           </div>
         </div>
-        <button className="btn btn-ghost" onClick={exportQueue} style={{ flexShrink: 0 }}>
+        <button
+          className="btn btn-ghost"
+          onClick={view === 'compliance'
+            ? exportQueue
+            : () => { exportActionItemsCsv(visibleActions); showToast('Action items exported as CSV.'); }}
+          style={{ flexShrink: 0 }}
+        >
           <Icon name="download" size={12} color="#94a3b8" />
-          Export queue
+          Export
         </button>
       </div>
 
+      {view === 'compliance' && (<>
       {/* Stats + filters row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         {/* Stats */}
@@ -506,6 +693,70 @@ export default function Exceptions() {
               <span className="badge badge-ok">Resolved</span>
             </div>
           ))}
+        </>
+      )}
+      </>)}
+
+      {/* ── Action items view ──────────────────────────────────────────────────── */}
+      {view === 'actions' && (
+        <>
+          {/* Summary stats */}
+          <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Open Items',  value: String(aiSummary.openItems),                        color: 'var(--text-primary)' },
+              { label: 'Critical',    value: String(aiSummary.criticalCount),                    color: '#ef4444'             },
+              { label: 'High',        value: String(aiSummary.highCount),                        color: '#f59e0b'             },
+              { label: 'Est. Annual', value: fmtK$(aiSummary.totalAnnualSavings) + '/yr',        color: '#22c55e'             },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: 'center', minWidth: 64 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {actionItems.length === 0 && (
+            <div style={{
+              background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)',
+              borderRadius: 8, padding: '24px 20px', color: 'var(--color-success)',
+              fontSize: 13, marginBottom: 16, lineHeight: 1.7,
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>✓ No financial action items detected.</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                The action engine evaluates spend spikes, idle seats, model optimisation, and budget overruns.
+                Import employee or department data to generate recommendations.
+              </div>
+            </div>
+          )}
+
+          {visibleActions.map(item => (
+            <ActionItemCard
+              key={item.id}
+              item={item}
+              onDismiss={id => setDismissedAI(prev => [...prev, id])}
+            />
+          ))}
+
+          {actionItems.length > 0 && visibleActions.length === 0 && (
+            <div style={{
+              background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)',
+              borderRadius: 8, padding: '20px 18px', color: 'var(--color-success)',
+              fontSize: 13, marginBottom: 16, textAlign: 'center',
+            }}>
+              ✓ All action items dismissed for this session.
+            </div>
+          )}
+
+          {aiSummary.topOpportunity && visibleActions.length > 0 && (
+            <div style={{
+              marginTop: 16, fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', paddingTop: 12,
+              borderTop: '1px solid var(--border)',
+            }}>
+              Top opportunity:{' '}
+              <strong style={{ color: 'var(--text-secondary)' }}>{aiSummary.topOpportunity.title}</strong>
+              {' · '}{fmtK$(aiSummary.topOpportunity.estimatedAnnualSavings)}/yr · Score {aiSummary.topOpportunity.priorityScore}
+            </div>
+          )}
         </>
       )}
 
