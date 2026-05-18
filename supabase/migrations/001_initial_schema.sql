@@ -42,6 +42,10 @@ create policy "org members can read their org"
   on organizations for select
   using (clerk_org_id = get_clerk_org_id());
 
+create policy "users can create their own org"
+  on organizations for insert
+  with check (clerk_org_id = get_clerk_org_id());
+
 create policy "org members can update their org"
   on organizations for update
   using (clerk_org_id = get_clerk_org_id());

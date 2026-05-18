@@ -4,6 +4,7 @@ import { useAuth, SignIn } from '@clerk/clerk-react';
 import './App.css';
 import { ImportProvider } from './context/ImportContext';
 import { DomainProvider, useDomain } from './context/DomainContext';
+import { OrgProvider } from './context/OrgContext';
 import Sidebar      from './components/Sidebar';
 import Topbar       from './components/Topbar';
 import Overview      from './pages/Overview';
@@ -88,11 +89,13 @@ export default function App() {
 
   return (
     <HashRouter>
-      <ImportProvider>
-        <DomainProvider>
-          <AppShell />
-        </DomainProvider>
-      </ImportProvider>
+      <OrgProvider>
+        <ImportProvider>
+          <DomainProvider>
+            <AppShell />
+          </DomainProvider>
+        </ImportProvider>
+      </OrgProvider>
     </HashRouter>
   );
 }

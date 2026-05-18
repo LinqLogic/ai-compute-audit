@@ -1,150 +1,242 @@
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
+// ─── Row shapes ───────────────────────────────────────────────────────────────
+
+export interface OrgRow {
+  id: string;
+  clerk_org_id: string;
+  name: string;
+  plan: 'free' | 'pro' | 'enterprise';
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_status: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportRow {
+  id: string;
+  org_id: string;
+  period_key: string;
+  workers_json: Json;
+  usage_events_json: Json;
+  rate_cards_json: Json;
+  row_counts: Json;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ScenarioRow {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  config_json: Json;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLogRow {
+  id: string;
+  org_id: string;
+  event_type: string;
+  actor_clerk_id: string;
+  payload: Json;
+  created_at: string;
+}
+
+export interface MeterEventRow {
+  id: string;
+  org_id: string;
+  event_type: string;
+  quantity: number;
+  period_key: string;
+  metadata: Json | null;
+  created_at: string;
+}
+
+export interface ActionItemRow {
+  id: string;
+  org_id: string;
+  item_id: string;
+  type: string;
+  severity: string;
+  status: string;
+  dismissed_by: string | null;
+  dismissed_at: string | null;
+  period_key: string;
+  payload: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExceptionOverrideRow {
+  id: string;
+  org_id: string;
+  exception_key: string;
+  approved_by: string;
+  reason: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface CloseStepRow {
+  id: string;
+  org_id: string;
+  period_key: string;
+  step_key: string;
+  done: boolean;
+  locked_by: string | null;
+  locked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Database type (required by createClient<Database>) ───────────────────────
+
 export interface Database {
   public: {
     Tables: {
       organizations: {
-        Row: {
-          id: string;
+        Row: OrgRow;
+        Insert: {
+          id?: string;
           clerk_org_id: string;
           name: string;
-          plan: 'free' | 'pro' | 'enterprise';
-          stripe_customer_id: string | null;
-          stripe_subscription_id: string | null;
-          subscription_status: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['organizations']['Row'], 'id' | 'created_at' | 'updated_at'> & {
-          id?: string;
+          plan?: 'free' | 'pro' | 'enterprise';
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          subscription_status?: string | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['organizations']['Insert']>;
+        Update: {
+          name?: string;
+          plan?: 'free' | 'pro' | 'enterprise';
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          subscription_status?: string | null;
+          updated_at?: string;
+        };
       };
       imports: {
-        Row: {
-          id: string;
+        Row: ImportRow;
+        Insert: {
+          id?: string;
           org_id: string;
           period_key: string;
-          workers_json: Json;
-          usage_events_json: Json;
-          rate_cards_json: Json;
-          row_counts: Json;
+          workers_json?: Json;
+          usage_events_json?: Json;
+          rate_cards_json?: Json;
+          row_counts?: Json;
           created_by: string;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['imports']['Row'], 'id' | 'created_at'> & {
-          id?: string;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['imports']['Insert']>;
+        Update: never;
       };
       scenarios: {
-        Row: {
-          id: string;
+        Row: ScenarioRow;
+        Insert: {
+          id?: string;
           org_id: string;
           name: string;
-          description: string | null;
-          config_json: Json;
+          description?: string | null;
+          config_json?: Json;
           created_by: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['scenarios']['Row'], 'id' | 'created_at' | 'updated_at'> & {
-          id?: string;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['scenarios']['Insert']>;
+        Update: {
+          name?: string;
+          description?: string | null;
+          config_json?: Json;
+          updated_at?: string;
+        };
       };
       audit_log: {
-        Row: {
-          id: string;
+        Row: AuditLogRow;
+        Insert: {
+          id?: string;
           org_id: string;
           event_type: string;
           actor_clerk_id: string;
-          payload: Json;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['audit_log']['Row'], 'id' | 'created_at'> & {
-          id?: string;
+          payload?: Json;
           created_at?: string;
         };
         Update: never;
       };
       meter_events: {
-        Row: {
-          id: string;
+        Row: MeterEventRow;
+        Insert: {
+          id?: string;
           org_id: string;
           event_type: string;
-          quantity: number;
+          quantity?: number;
           period_key: string;
-          metadata: Json | null;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['meter_events']['Row'], 'id' | 'created_at'> & {
-          id?: string;
+          metadata?: Json | null;
           created_at?: string;
         };
         Update: never;
       };
       action_items: {
-        Row: {
-          id: string;
+        Row: ActionItemRow;
+        Insert: {
+          id?: string;
           org_id: string;
           item_id: string;
           type: string;
           severity: string;
-          status: string;
-          dismissed_by: string | null;
-          dismissed_at: string | null;
+          status?: string;
+          dismissed_by?: string | null;
+          dismissed_at?: string | null;
           period_key: string;
-          payload: Json;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['action_items']['Row'], 'id' | 'created_at' | 'updated_at'> & {
-          id?: string;
+          payload?: Json;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['action_items']['Insert']>;
+        Update: {
+          status?: string;
+          dismissed_by?: string | null;
+          dismissed_at?: string | null;
+          updated_at?: string;
+        };
       };
       exception_overrides: {
-        Row: {
-          id: string;
+        Row: ExceptionOverrideRow;
+        Insert: {
+          id?: string;
           org_id: string;
           exception_key: string;
           approved_by: string;
           reason: string;
-          expires_at: string | null;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['exception_overrides']['Row'], 'id' | 'created_at'> & {
-          id?: string;
+          expires_at?: string | null;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['exception_overrides']['Insert']>;
+        Update: {
+          reason?: string;
+          expires_at?: string | null;
+        };
       };
       close_steps: {
-        Row: {
-          id: string;
+        Row: CloseStepRow;
+        Insert: {
+          id?: string;
           org_id: string;
           period_key: string;
           step_key: string;
-          done: boolean;
-          locked_by: string | null;
-          locked_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['close_steps']['Row'], 'id' | 'created_at' | 'updated_at'> & {
-          id?: string;
+          done?: boolean;
+          locked_by?: string | null;
+          locked_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['close_steps']['Insert']>;
+        Update: {
+          done?: boolean;
+          locked_by?: string | null;
+          locked_at?: string | null;
+          updated_at?: string;
+        };
       };
     };
     Views: Record<string, never>;
