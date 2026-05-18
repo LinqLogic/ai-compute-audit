@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Icon from './Icon';
 
 interface NavItem {
@@ -10,13 +11,15 @@ interface NavItem {
 }
 
 interface SidebarProps {
-  page: string;
-  setPage: (p: string) => void;
   exceptionCount: number;
   reviewCount: number;
 }
 
-export default function Sidebar({ page, setPage, exceptionCount, reviewCount }: SidebarProps) {
+export default function Sidebar({ exceptionCount, reviewCount }: SidebarProps) {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const activePath = location.pathname;
+
   // Primary navigation — enterprise-consolidated view.
   // Hidden from primary nav during enterprise navigation consolidation:
   //   { id: 'departments',  label: 'Cost Centres',    icon: 'building' }  → visible in Overview dept breakdown
@@ -30,6 +33,10 @@ export default function Sidebar({ page, setPage, exceptionCount, reviewCount }: 
     { id: 'close',      label: 'Monthly Close',      icon: 'workflow' },
     { id: 'settings',   label: 'Settings',           icon: 'settings' },
   ];
+
+  function isActive(id: string): boolean {
+    return activePath === '/' + id || (id === 'overview' && activePath === '/');
+  }
 
   return (
     <aside className="sidebar">
@@ -46,13 +53,13 @@ export default function Sidebar({ page, setPage, exceptionCount, reviewCount }: 
         {navItems.map(item => (
           <button
             key={item.id}
-            className={`nav-item${page === item.id ? ' active' : ''}`}
-            onClick={() => setPage(item.id)}
+            className={`nav-item${isActive(item.id) ? ' active' : ''}`}
+            onClick={() => navigate('/' + item.id)}
           >
             <Icon
               name={item.icon}
               size={14}
-              color={page === item.id ? 'var(--accent)' : '#9CA3AF'}
+              color={isActive(item.id) ? 'var(--accent)' : '#9CA3AF'}
             />
             {item.label}
             {item.badge != null && item.badge > 0 && (

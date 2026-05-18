@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth, SignIn } from '@clerk/clerk-react';
 import './App.css';
 import { ImportProvider } from './context/ImportContext';
 import { DomainProvider, useDomain } from './context/DomainContext';
-import Sidebar     from './components/Sidebar';
-import Topbar      from './components/Topbar';
+import Sidebar      from './components/Sidebar';
+import Topbar       from './components/Topbar';
 import Overview      from './pages/Overview';
 import Ledger        from './pages/Ledger';
 import Departments   from './pages/Departments';
@@ -14,64 +15,53 @@ import Ratecard      from './pages/Ratecard';
 import Architecture  from './pages/Architecture';
 import Settings      from './pages/Settings';
 import Scenarios     from './pages/Scenarios';
+import { generateGovernanceExceptions } from './analytics/governanceExceptions';
+import { useMemo } from 'react';
 
 const PAGE_TITLES: Record<string, string> = {
   overview:     'Executive Overview',
   ledger:       'Employee Ledger',
-  departments:  'Cost Centres',     // hidden from primary nav — visible in Overview dept breakdown
+  departments:  'Cost Centres',
   close:        'Monthly Close',
   exceptions:   'Exceptions',
-  ratecard:     'Rate Cards',       // hidden from primary nav — accessible via Settings › Vendor Billing
-  scenarios:    'Saved Scenarios',  // hidden from primary nav — accessible via Settings › Saved Scenarios
-  architecture: 'Architecture',    // hidden from primary nav — internal only
+  ratecard:     'Rate Cards',
+  scenarios:    'Saved Scenarios',
+  architecture: 'Architecture',
   settings:     'Settings',
 };
 
 function AppShell() {
-  const [page, setPage] = useState('overview');
+  const location = useLocation();
   const { employees, deptSpend, ratecards, policyMix } = useDomain();
 
   const reviewCount    = employees.filter(e => e.policy !== 'Compliant').length;
-  const exceptionCount = employees.filter(e => e.policy === 'Escalate').length || 5;
-  const pageTitle      = PAGE_TITLES[page] || page;
+  const exceptionCount = useMemo(
+    () => generateGovernanceExceptions(employees, deptSpend).length,
+    [employees, deptSpend],
+  );
 
-  function renderPage() {
-    switch (page) {
-      case 'overview':
-        return <Overview filtered={employees} deptSpend={deptSpend} policyMix={policyMix} />;
-      case 'ledger':
-        return <Ledger employees={employees} />;
-      case 'departments':
-        return <Departments employees={employees} deptSpend={deptSpend} />;
-      case 'close':
-        return <Close />;
-      case 'exceptions':
-        return <Exceptions />;
-      case 'ratecard':
-        return <Ratecard ratecards={ratecards} />;
-      case 'scenarios':
-        return <Scenarios />;
-      case 'architecture':
-        return <Architecture />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Overview filtered={employees} deptSpend={deptSpend} policyMix={policyMix} />;
-    }
-  }
+  const pageKey   = location.pathname.replace(/^\//, '') || 'overview';
+  const pageTitle = PAGE_TITLES[pageKey] || pageKey;
 
   return (
     <div className="shell">
-      <Sidebar
-        page={page}
-        setPage={setPage}
-        exceptionCount={exceptionCount}
-        reviewCount={reviewCount}
-      />
+      <Sidebar exceptionCount={exceptionCount} reviewCount={reviewCount} />
       <div className="main">
         <Topbar pageTitle={pageTitle} />
         <div className="content">
-          {renderPage()}
+          <Routes>
+            <Route index element={<Navigate to="/overview" replace />} />
+            <Route path="/overview"     element={<Overview filtered={employees} deptSpend={deptSpend} policyMix={policyMix} />} />
+            <Route path="/ledger"       element={<Ledger employees={employees} />} />
+            <Route path="/departments"  element={<Departments employees={employees} deptSpend={deptSpend} />} />
+            <Route path="/close"        element={<Close />} />
+            <Route path="/exceptions"   element={<Exceptions />} />
+            <Route path="/ratecard"     element={<Ratecard ratecards={ratecards} />} />
+            <Route path="/scenarios"    element={<Scenarios />} />
+            <Route path="/architecture" element={<Architecture />} />
+            <Route path="/settings"     element={<Settings />} />
+            <Route path="*"             element={<Navigate to="/overview" replace />} />
+          </Routes>
         </div>
       </div>
     </div>
@@ -100,10 +90,12 @@ export default function App() {
   }
 
   return (
-    <ImportProvider>
-      <DomainProvider>
-        <AppShell />
-      </DomainProvider>
-    </ImportProvider>
+    <HashRouter>
+      <ImportProvider>
+        <DomainProvider>
+          <AppShell />
+        </DomainProvider>
+      </ImportProvider>
+    </HashRouter>
   );
 }
