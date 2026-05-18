@@ -11,6 +11,7 @@
  */
 
 import { ACTION_ENGINE_CONFIG } from './config';
+export { fmt$, fmtK$, fmtPct, fmtVariance } from '../utils/format';
 
 const CFG = ACTION_ENGINE_CONFIG;
 
@@ -131,34 +132,3 @@ export function calcBudgetOverrun(spend: number, budget: number): BudgetOverrunC
   };
 }
 
-// ─── Formatting utilities (no React dependency) ───────────────────────────────
-
-/** '$12,345' */
-export function fmt$(n: number): string {
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
-
-/** '$12.3K' for large amounts, '$999' for small. */
-export function fmtK$(n: number): string {
-  return n >= 1_000 ? '$' + (n / 1_000).toFixed(1) + 'K' : fmt$(n);
-}
-
-/** '+25.5%' or '-3.2%' */
-export function fmtPct(n: number, decimals = 1): string {
-  return (n >= 0 ? '+' : '') + n.toFixed(decimals) + '%';
-}
-
-/**
- * Executive-safe variance display.
- * Caps at 500% — beyond that, switches to multiplier language to avoid
- * alarming but uninformative percentage strings like '+224,965%'.
- * Examples: '+45.0%', '+185.0%', '~23× above benchmark'
- */
-export function fmtVariance(variancePct: number): string {
-  if (!isFinite(variancePct) || variancePct < 0) return 'N/A';
-  if (variancePct > 500) {
-    const times = Math.round(variancePct / 100 + 1);
-    return `~${times.toLocaleString('en-US')}× above benchmark`;
-  }
-  return fmtPct(variancePct);
-}

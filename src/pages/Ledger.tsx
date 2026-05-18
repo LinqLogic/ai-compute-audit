@@ -125,7 +125,7 @@ export default function Ledger({ employees }: Props) {
                   <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{fmt$(e.spend, 2)}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>${e.alloc}</td>
                   <td>
-                    <div className={e.variance > 0 ? 'var-pos' : 'var-neg'}>{fmtPct(e.variance)}</div>
+                    <div className={e.variance > 0 ? 'var-pos' : 'var-neg'}>{fmtPct(e.variance, 0)}</div>
                     <div style={{ width: 60, height: 4, background: 'var(--border)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
                       <div style={{ width: `${pct}%`, height: '100%', background: e.variance > 20 ? '#ef4444' : '#22c55e', borderRadius: 2 }} />
                     </div>
