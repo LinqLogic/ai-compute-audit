@@ -16,7 +16,7 @@
  * Pure function — same input always produces same output.
  */
 
-import { Employee } from '../../data/types';
+import { Employee, ToolId } from '../../data/types';
 import { ActionItem, ActionSeverity } from '../types';
 import { ACTION_ENGINE_CONFIG as CFG } from '../config';
 import { calcModelOptimization, fmt$, fmtK$ } from '../financialCalculations';
@@ -26,18 +26,14 @@ import { interpretModelOptimization } from '../governanceInterpreter';
 const MC   = CFG.modelOptimization;
 const CONF = CFG.confidence;
 
-// Premium-tier providers — case-insensitive keyword matching
-const PREMIUM_KEYWORDS = [
-  'openai', 'anthropic', 'claude', 'gpt',
-  'vertex', 'gemini', 'bedrock', 'azure openai',
-  'mistral', 'cohere', 'perplexity',
-];
+// Premium-tier providers — canonical ToolId exact match
+const PREMIUM_TOOL_IDS = new Set<ToolId>([
+  'openai', 'anthropic', 'google_gemini', 'vertex_ai',
+  'aws_bedrock', 'azure_openai', 'mistral', 'cohere', 'perplexity',
+]);
 
-function hasPremiumProvider(apps: string[]): boolean {
-  return apps.some(a => {
-    const lower = a.toLowerCase().trim();
-    return PREMIUM_KEYWORDS.some(kw => lower.includes(kw));
-  });
+function hasPremiumProvider(apps: ToolId[]): boolean {
+  return apps.some(id => PREMIUM_TOOL_IDS.has(id));
 }
 
 function currentPeriod(): string {

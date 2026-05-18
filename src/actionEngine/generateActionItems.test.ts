@@ -60,21 +60,21 @@ describe('generateActionItems — spend spikes', () => {
 
 describe('generateActionItems — idle seats', () => {
   it('generates idle_seat for Copilot holder with low prompts', () => {
-    // Copilot = $30/month; prompts=10 well below threshold → wasted seat
-    const emp = makeEmployee({ apps: ['Copilot'], prompts: 10, spend: 50 });
+    // copilot_m365 = $30/month; prompts=10 well below threshold → wasted seat
+    const emp = makeEmployee({ apps: ['copilot_m365'], prompts: 10, spend: 50 });
     const items = generateActionItems([emp], []);
     expect(items.some(i => i.type === 'idle_seat')).toBe(true);
   });
 
   it('does NOT flag idle seat for employee with no seat tools', () => {
-    const emp = makeEmployee({ apps: ['Some-Unknown-Tool'], prompts: 10, spend: 50 });
+    const emp = makeEmployee({ apps: ['some-unknown-tool'], prompts: 10, spend: 50 });
     const items = generateActionItems([emp], []);
     expect(items.every(i => i.type !== 'idle_seat')).toBe(true);
   });
 
   it('does NOT flag idle seat when prompts are above threshold', () => {
     // Threshold is 1,000 — 1,200 prompts should not trigger
-    const emp = makeEmployee({ apps: ['Copilot'], prompts: 1200, spend: 50 });
+    const emp = makeEmployee({ apps: ['copilot_m365'], prompts: 1200, spend: 50 });
     const items = generateActionItems([emp], []);
     expect(items.every(i => i.type !== 'idle_seat')).toBe(true);
   });
@@ -84,13 +84,13 @@ describe('generateActionItems — idle seats', () => {
 
 describe('generateActionItems — model optimization', () => {
   it('generates model_optimization for premium provider user above spend threshold', () => {
-    const emp = makeEmployee({ apps: ['OpenAI', 'Anthropic'], spend: 300, prompts: 1000 });
+    const emp = makeEmployee({ apps: ['openai', 'anthropic'], spend: 300, prompts: 1000 });
     const items = generateActionItems([emp], []);
     expect(items.some(i => i.type === 'model_optimization')).toBe(true);
   });
 
   it('does NOT generate model_optimization for low spenders', () => {
-    const emp = makeEmployee({ apps: ['OpenAI'], spend: 50, prompts: 500 });
+    const emp = makeEmployee({ apps: ['openai'], spend: 50, prompts: 500 });
     const items = generateActionItems([emp], []);
     expect(items.every(i => i.type !== 'model_optimization')).toBe(true);
   });

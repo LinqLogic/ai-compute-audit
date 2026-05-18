@@ -7,13 +7,14 @@
  * Consumed by: employeeBuilder.ts, DomainContext
  */
 
-import { Employee } from '../data/types';
+import { Employee, ToolId } from '../data/types';
 
-// ─── Approved tool list ──────────────────────────────────────────────────────
+// ─── Approved tool list (canonical ToolId values) ────────────────────────────
 
-export const APPROVED_TOOLS = new Set<string>([
-  'openai', 'copilot', 'anthropic', 'gemini', 'vertex',
-  'github copilot', 'microsoft', 'google', 'adobe',
+export const APPROVED_TOOLS = new Set<ToolId>([
+  'openai', 'anthropic', 'github_copilot', 'copilot_m365',
+  'cursor', 'tabnine', 'google_gemini', 'vertex_ai',
+  'aws_bedrock', 'azure_openai', 'adobe_firefly',
 ]);
 
 // ─── Per-employee classification ─────────────────────────────────────────────
@@ -24,10 +25,10 @@ export const APPROVED_TOOLS = new Set<string>([
  */
 export function derivePolicy(
   variance:    number,
-  apps:        string[],
+  apps:        ToolId[],
   unratedCount: number,
 ): 'Compliant' | 'Review' | 'Escalate' {
-  const hasShadow = apps.some(a => !APPROVED_TOOLS.has(a.toLowerCase()));
+  const hasShadow = apps.some(a => !APPROVED_TOOLS.has(a));
   if (variance > 80 || (hasShadow && variance > 40)) return 'Escalate';
   if (variance > 25 || hasShadow || unratedCount > 0)  return 'Review';
   return 'Compliant';

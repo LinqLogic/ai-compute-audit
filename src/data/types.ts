@@ -1,5 +1,21 @@
 export type PolicyStatus = 'Compliant' | 'Review' | 'Escalate';
 
+/**
+ * Canonical tool identifier — lowercase, underscore-separated.
+ * Produced by normalizeToolId() at the ingestion boundary.
+ * The (string & {}) union allows arbitrary unknown tools while preserving
+ * TypeScript autocomplete on the known literal members.
+ */
+export const KNOWN_TOOL_IDS = [
+  'openai', 'anthropic', 'github_copilot', 'copilot_m365',
+  'cursor', 'tabnine', 'codewhisperer', 'google_gemini',
+  'vertex_ai', 'aws_bedrock', 'azure_openai', 'adobe_firefly',
+  'mistral', 'cohere', 'perplexity',
+] as const;
+
+export type KnownToolId = typeof KNOWN_TOOL_IDS[number];
+export type ToolId = KnownToolId | (string & {});
+
 export interface Employee {
   id: number;
   name: string;
@@ -12,7 +28,7 @@ export interface Employee {
   tokens: number;
   gpu: number;
   prompts: number;
-  apps: string[];
+  apps: ToolId[];
   policy: PolicyStatus;
   variance: number;
   alloc: number;

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Employee } from '../data/types';
 import { fmt$, fmtPct, riskColor, policyBadgeClass } from '../utils/format';
 import { exportEmployeesCsv } from '../utils/exportData';
+import { displayToolId } from '../ingestion/normalization/normalizeToolId';
 import Icon from '../components/Icon';
 
 interface Props {
@@ -121,7 +122,7 @@ export default function Ledger({ employees }: Props) {
                     <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{e.manager}</div>
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>{e.center}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{e.apps.join(', ')}</td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{e.apps.map(displayToolId).join(', ')}</td>
                   <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{fmt$(e.spend, 2)}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>${e.alloc}</td>
                   <td>

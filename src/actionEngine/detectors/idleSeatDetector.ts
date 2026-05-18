@@ -11,56 +11,33 @@
  * Pure function — same input always produces same output.
  */
 
-import { Employee } from '../../data/types';
+import { Employee, ToolId } from '../../data/types';
 import { ActionItem, ActionSeverity } from '../types';
 import { ACTION_ENGINE_CONFIG as CFG } from '../config';
 import { calcIdleSeat, fmt$, fmtK$ } from '../financialCalculations';
 import { computePriorityScore } from '../priorityScoring';
 import { interpretIdleSeat } from '../governanceInterpreter';
+import { displayToolId } from '../../ingestion/normalization/normalizeToolId';
 
 const IC   = CFG.idleSeat;
 const CONF = CFG.confidence;
 
-// Build a lowercase → cost lookup for case-insensitive exact matching
-const SEAT_COST_LOWER = new Map<string, number>(
-  Object.entries(IC.seatCostByApp).map(([k, v]) => [k.toLowerCase(), v]),
-);
+// Seat cost per canonical ToolId (monthly USD)
+const SEAT_COST: Partial<Record<ToolId, number>> = {
+  github_copilot: 19,
+  copilot_m365:   30,
+  cursor:         20,
+  tabnine:        15,
+  codewhisperer:  19,
+};
 
-// Keyword rules for fuzzy fallback — evaluated in order, first match wins
-const KEYWORD_RULES: Array<{ keyword: string; cost: number }> = [
-  { keyword: 'github copilot', cost: 19 },
-  { keyword: 'copilot',        cost: 30 },
-  { keyword: 'cursor',         cost: 20 },
-  { keyword: 'tabnine',        cost: 15 },
-  { keyword: 'codewhisperer',  cost: 19 },
-];
+interface SeatMatch { id: ToolId; cost: number }
 
-interface SeatMatch { name: string; cost: number }
-
-function resolveSeatCost(app: string): number | null {
-  const lower = app.toLowerCase().trim();
-
-  // 1. Exact match (case-insensitive)
-  const exact = SEAT_COST_LOWER.get(lower);
-  if (exact !== undefined) return exact;
-
-  // 2. Keyword fallback
-  for (const rule of KEYWORD_RULES) {
-    if (lower.includes(rule.keyword)) return rule.cost;
-  }
-
-  return null;
-}
-
-function findSeatMatches(apps: string[]): SeatMatch[] {
-  const seen   = new Set<string>();
+function findSeatMatches(apps: ToolId[]): SeatMatch[] {
   const result: SeatMatch[] = [];
-  for (const app of apps) {
-    const cost = resolveSeatCost(app);
-    if (cost !== null && !seen.has(app)) {
-      seen.add(app);
-      result.push({ name: app, cost });
-    }
+  for (const id of apps) {
+    const cost = SEAT_COST[id];
+    if (cost !== undefined) result.push({ id, cost });
   }
   return result;
 }
@@ -96,7 +73,7 @@ export function detectIdleSeats(employees: Employee[]): ActionItem[] {
 
     const severity      = classifySeverity(calc.estimatedAnnualWaste);
     const utilizationPct = calc.utilizationRatio * 100;
-    const toolLabel     = seatMatches.map(m => m.name).join(' + ');
+    const toolLabel     = seatMatches.map(m => displayToolId(m.id)).join(' + ');
     const interp        = interpretIdleSeat(
       emp.name, toolLabel, emp.prompts, seatCost,
       calc.estimatedAnnualWaste, utilizationPct,

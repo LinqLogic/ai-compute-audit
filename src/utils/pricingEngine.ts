@@ -12,7 +12,8 @@
  */
 
 import { RateCardRow, UsageEventRow } from '../types/csvRows';
-import { IndexedRateCard, PricedEvent } from '../data/types';
+import { IndexedRateCard, PricedEvent, ToolId } from '../data/types';
+import { normalizeToolId } from '../ingestion/normalization/normalizeToolId';
 
 // ─── 1. Build rate card index ───────────────────────────────────────────────
 
@@ -302,7 +303,7 @@ export interface EmployeeAggregation {
   tokens:  number;
   gpu:     number;
   prompts: number;
-  apps:    string[];
+  apps:    ToolId[];
   unratedCount: number;
 }
 
@@ -324,8 +325,9 @@ export function aggregateByEmployee(
     agg.prompts+= 1;
     agg.unratedCount += ev.rated ? 0 : 1;
 
-    const appName = ev.provider || ev.model || '';
-    if (appName && !agg.apps.includes(appName)) agg.apps.push(appName);
+    const rawName = ev.provider || ev.model || '';
+    const toolId  = rawName ? normalizeToolId(rawName) : '';
+    if (toolId && !agg.apps.includes(toolId)) agg.apps.push(toolId);
 
     map.set(id, agg);
   }

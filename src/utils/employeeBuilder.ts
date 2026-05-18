@@ -54,7 +54,7 @@ export function buildEmployeesFromCsv(
       // Target ~80 % budget utilisation so variance figures are informative
       const alloc      = Math.max(100, Math.round(spend / 0.80));
       const variance   = alloc > 0 ? Math.round(((spend - alloc) / alloc) * 100) : 0;
-      const hasShadow  = agg.apps.some(a => !APPROVED_TOOLS.has(a.toLowerCase()));
+      const hasShadow  = agg.apps.some(a => !APPROVED_TOOLS.has(a));
 
       return {
         id:       i + 1,
