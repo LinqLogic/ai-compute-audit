@@ -50,15 +50,6 @@ export interface Connector {
   color: string;
 }
 
-export interface Exception {
-  id: number;
-  level: 'Escalate' | 'Review';
-  emp: string;
-  dept: string;
-  issue: string;
-  center: string;
-}
-
 export interface GovernanceException {
   id: string;
   title: string;

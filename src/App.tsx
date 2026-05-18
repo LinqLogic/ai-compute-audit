@@ -12,7 +12,6 @@ import Departments   from './pages/Departments';
 import Close         from './pages/Close';
 import Exceptions    from './pages/Exceptions';
 import Ratecard      from './pages/Ratecard';
-import Architecture  from './pages/Architecture';
 import Settings      from './pages/Settings';
 import Scenarios     from './pages/Scenarios';
 import { generateGovernanceExceptions } from './analytics/governanceExceptions';
@@ -26,7 +25,6 @@ const PAGE_TITLES: Record<string, string> = {
   exceptions:   'Exceptions',
   ratecard:     'Rate Cards',
   scenarios:    'Saved Scenarios',
-  architecture: 'Architecture',
   settings:     'Settings',
 };
 
@@ -58,7 +56,6 @@ function AppShell() {
             <Route path="/exceptions"   element={<Exceptions />} />
             <Route path="/ratecard"     element={<Ratecard ratecards={ratecards} />} />
             <Route path="/scenarios"    element={<Scenarios />} />
-            <Route path="/architecture" element={<Architecture />} />
             <Route path="/settings"     element={<Settings />} />
             <Route path="*"             element={<Navigate to="/overview" replace />} />
           </Routes>

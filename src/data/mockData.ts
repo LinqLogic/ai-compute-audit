@@ -1,6 +1,6 @@
 import {
   Employee, MonthlyTrend, DeptSpend,
-  RateCard, Connector, Exception, CloseStep, PolicyRule
+  RateCard, Connector, CloseStep, PolicyRule
 } from './types';
 
 export const employees: Employee[] = [
@@ -65,14 +65,6 @@ export const connectors: Connector[] = [
   { name:'AWS Bedrock',         status:'Pending',   type:'Usage + Billing',   color:'#64748b' },
   { name:'GitHub (Copilot)',    status:'Connected', type:'Seat + Activity',   color:'#22c55e' },
   { name:'Adobe Firefly API',   status:'Degraded',  type:'Usage + Billing',   color:'#f59e0b' },
-];
-
-export const exceptions: Exception[] = [
-  { id:1, level:'Escalate', emp:'Jasmine Lee',    dept:'Legal',       issue:'Spend 95% above allocation — no business justification filed. CFO review required before month lock.', center:'LGL-610' },
-  { id:2, level:'Review',   emp:'Daniel Brooks',  dept:'Marketing',   issue:'Adobe Firefly is not on the approved vendor list for cost center MKT-410. Manager must confirm or remove.', center:'MKT-410' },
-  { id:3, level:'Review',   emp:'Marcus Chen',    dept:'Engineering', issue:'Token usage spike of 3.1× month-over-month across three AI providers. Review for policy compliance.', center:'ENG-220' },
-  { id:4, level:'Review',   emp:'Chloe Martin',   dept:'Engineering', issue:'GitHub Copilot Enterprise seat active — manager approval not recorded in the system.', center:'ENG-220' },
-  { id:5, level:'Review',   emp:'Lily Okonkwo',   dept:'Engineering', issue:'Highest per-employee spend this month ($988). Usage spans 3 providers. Justification doc missing.', center:'ENG-230' },
 ];
 
 export const closeSteps: CloseStep[] = [
