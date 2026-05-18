@@ -1,0 +1,4 @@
+event_id,employee_id,provider,product,model,event_type,tokens_in,tokens_out,gpu_hours,billed_amount,timestamp
+ev-001,E-1001,OpenAI,GPT-4o,gpt-4o,chat,45000,12000,0,2.85,2026-04-01T10:00:00Z
+ev-002,E-1001,Anthropic,Claude,claude-sonnet-4,chat,30000,8000,0,1.14,2026-04-02T14:30:00Z
+ev-003,E-1002,Microsoft,Copilot,copilot-m365,chat,5000,2000,0,30.00,2026-04-01T09:00:00Z

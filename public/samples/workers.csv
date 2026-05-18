@@ -1,0 +1,4 @@
+employee_id,name,department,manager,cost_center,status,email
+E-1001,Jane Smith,Engineering,Bob Lee (CTO),ENG-100,active,jane@acme.com
+E-1002,Carlos Rivera,Finance,Amy Chen (CFO),FIN-100,active,carlos@acme.com
+E-1003,Priya Patel,Marketing,Sue Kim (CMO),MKT-200,active,priya@acme.com

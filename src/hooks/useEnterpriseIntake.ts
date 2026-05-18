@@ -61,36 +61,12 @@ export const SCHEMA_DISPLAY: Record<SchemaType, string> = {
   unknown:    'Not detected',
 };
 
-// ─── Sample CSV content (shared with legacy sample downloads) ─────────────────
+// ─── Sample file paths (served from public/samples/) ─────────────────────────
 
-const SAMPLE_CSV: Record<CsvFileType, { filename: string; content: string }> = {
-  workers: {
-    filename: 'sample_workers.csv',
-    content: [
-      'employee_id,name,department,manager,cost_center,status,email',
-      'E-1001,Jane Smith,Engineering,Bob Lee (CTO),ENG-100,active,jane@acme.com',
-      'E-1002,Carlos Rivera,Finance,Amy Chen (CFO),FIN-100,active,carlos@acme.com',
-      'E-1003,Priya Patel,Marketing,Sue Kim (CMO),MKT-200,active,priya@acme.com',
-    ].join('\n'),
-  },
-  usage_events: {
-    filename: 'sample_usage_events.csv',
-    content: [
-      'event_id,employee_id,provider,product,model,event_type,tokens_in,tokens_out,gpu_hours,billed_amount,timestamp',
-      'ev-001,E-1001,OpenAI,GPT-4o,gpt-4o,chat,45000,12000,0,2.85,2026-04-01T10:00:00Z',
-      'ev-002,E-1001,Anthropic,Claude,claude-sonnet-4,chat,30000,8000,0,1.14,2026-04-02T14:30:00Z',
-      'ev-003,E-1002,Microsoft,Copilot,copilot-m365,chat,5000,2000,0,30.00,2026-04-01T09:00:00Z',
-    ].join('\n'),
-  },
-  rate_cards: {
-    filename: 'sample_rate_cards.csv',
-    content: [
-      'provider,model,unit_basis,rate,markup,effective_start,effective_end',
-      'OpenAI,GPT-4o,1m_tokens,5.00,0.15,2026-01-01,2026-12-31',
-      'Anthropic,claude-sonnet-4,1m_tokens,3.00,0.15,2026-01-01,2026-12-31',
-      'Microsoft,copilot-m365,per_seat,30.00,0.10,2026-01-01,2026-12-31',
-    ].join('\n'),
-  },
+const SAMPLE_FILE: Record<CsvFileType, { filename: string; path: string }> = {
+  workers:      { filename: 'sample_workers.csv',      path: `${process.env.PUBLIC_URL}/samples/workers.csv` },
+  usage_events: { filename: 'sample_usage_events.csv', path: `${process.env.PUBLIC_URL}/samples/usage_events.csv` },
+  rate_cards:   { filename: 'sample_rate_cards.csv',   path: `${process.env.PUBLIC_URL}/samples/rate_cards.csv` },
 };
 
 // ─── Hook public interface ────────────────────────────────────────────────────
@@ -299,17 +275,14 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
   }, [resetToMock]);
 
   const downloadSample = useCallback((type: CsvFileType) => {
-    const { filename, content } = SAMPLE_CSV[type];
-    const blob = new Blob([content], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
+    const { filename, path } = SAMPLE_FILE[type];
     const a    = document.createElement('a');
-    a.href     = url;
+    a.href     = path;
     a.download = filename;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 150);
   }, []);
 
   return {

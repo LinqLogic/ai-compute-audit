@@ -125,7 +125,7 @@ describe('priceEvent', () => {
   ]);
 
   const baseRow: UsageEventRow = {
-    event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o',
+    event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', product: 'gpt-4o',
     event_type: 'completion', timestamp: '2026-04-01T00:00:00Z',
     tokens_in: '500000', tokens_out: '500000', gpu_hours: '0', billed_amount: '10',
   };
@@ -157,7 +157,7 @@ describe('priceAllEvents', () => {
 
   it('falls back to billedAmount when rate cards are empty', () => {
     const events: UsageEventRow[] = [
-      { event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '1000', gpu_hours: '0', billed_amount: '5' },
+      { event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', product: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '1000', gpu_hours: '0', billed_amount: '5' },
     ];
     const [ev] = priceAllEvents(events, []);
     expect(ev.rated).toBe(false);
@@ -170,8 +170,8 @@ describe('priceAllEvents', () => {
 describe('aggregateByEmployee', () => {
   it('sums spend and tokens for one employee', () => {
     const events = priceAllEvents([
-      { event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '500', gpu_hours: '0', billed_amount: '3' },
-      { event_id: 'E2', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '2000', tokens_out: '500', gpu_hours: '0', billed_amount: '7' },
+      { event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', product: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '500', gpu_hours: '0', billed_amount: '3' },
+      { event_id: 'E2', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', product: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '2000', tokens_out: '500', gpu_hours: '0', billed_amount: '7' },
     ], null);
 
     const agg = aggregateByEmployee(events);
@@ -181,8 +181,8 @@ describe('aggregateByEmployee', () => {
 
   it('tracks multiple employees separately', () => {
     const events = priceAllEvents([
-      { event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '0', gpu_hours: '0', billed_amount: '2' },
-      { event_id: 'E2', employee_id: 'EMP2', provider: 'openai', model: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '0', gpu_hours: '0', billed_amount: '3' },
+      { event_id: 'E1', employee_id: 'EMP1', provider: 'openai', model: 'gpt-4o', product: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '0', gpu_hours: '0', billed_amount: '2' },
+      { event_id: 'E2', employee_id: 'EMP2', provider: 'openai', model: 'gpt-4o', product: 'gpt-4o', event_type: 'completion', timestamp: '2026-04-01', tokens_in: '1000', tokens_out: '0', gpu_hours: '0', billed_amount: '3' },
     ], null);
 
     const agg = aggregateByEmployee(events);

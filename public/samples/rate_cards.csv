@@ -1,0 +1,4 @@
+provider,model,unit_basis,rate,markup,effective_start,effective_end
+OpenAI,GPT-4o,1m_tokens,5.00,0.15,2026-01-01,2026-12-31
+Anthropic,claude-sonnet-4,1m_tokens,3.00,0.15,2026-01-01,2026-12-31
+Microsoft,copilot-m365,per_seat,30.00,0.10,2026-01-01,2026-12-31
