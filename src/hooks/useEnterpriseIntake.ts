@@ -20,8 +20,8 @@ import { WorkerRow, UsageEventRow, RateCardRow, CsvFileType } from '../types/csv
 import { useImport } from '../context/ImportContext';
 import { useSupabase } from './useSupabase';
 import { useOrg } from '../context/OrgContext';
-import { runIngestionPipelineFromFile } from '../ingestion';
 import { VendorId, SchemaType } from '../ingestion/types';
+import { useIngestionWorker } from './useIngestionWorker';
 import { persistImport } from '../api/imports';
 import { writeMeterEvent } from '../api/meter';
 import { useAuditLog } from './useAuditLog';
@@ -99,6 +99,7 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
   const { user }  = useUser();
   const { log }           = useAuditLog();
   const { importsExceeded, refresh: refreshQuota } = useQuota();
+  const { processFile: processFileInWorker } = useIngestionWorker();
 
   const [results,      setResults]      = useState<IntakeResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -112,8 +113,8 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
     const filename = file.name;
 
     try {
-      // 1. Enterprise ingestion pipeline (handles vendor exports + standard CSVs)
-      const pipeline = await runIngestionPipelineFromFile(file);
+      // 1. Enterprise ingestion pipeline — runs in Web Worker when available
+      const pipeline = await processFileInWorker(file);
       const { meta, workers, usageEvents, rateCards, inferredWorkers } = pipeline;
 
       if (workers !== undefined || usageEvents !== undefined || rateCards !== undefined) {
