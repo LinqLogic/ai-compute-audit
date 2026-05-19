@@ -14,11 +14,15 @@
  */
 
 import React, { useRef, useState, useCallback } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { parseCsv } from '../utils/csvParser';
 import { WorkerRow, UsageEventRow, RateCardRow, CsvFileType } from '../types/csvRows';
 import { useImport } from '../context/ImportContext';
+import { useSupabase } from './useSupabase';
+import { useOrg } from '../context/OrgContext';
 import { runIngestionPipelineFromFile } from '../ingestion';
 import { VendorId, SchemaType } from '../ingestion/types';
+import { persistImport } from '../api/imports';
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
@@ -86,7 +90,10 @@ export interface UseEnterpriseIntakeReturn {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
-  const { applyImport, applyImportIfEmpty, resetToMock } = useImport();
+  const { applyImport, applyImportIfEmpty, resetToMock, imported } = useImport();
+  const client    = useSupabase();
+  const { orgId } = useOrg();
+  const { user }  = useUser();
 
   const [results,      setResults]      = useState<IntakeResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -248,6 +255,13 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
     }
 
     setIsProcessing(false);
+
+    // Persist to Supabase if org is bootstrapped
+    if (client && orgId && user?.id) {
+      persistImport(client, orgId, user.id, imported).catch(err =>
+        console.error('[useEnterpriseIntake] persistImport failed:', err),
+      );
+    }
   }
 
   // ── Public interface ────────────────────────────────────────────────────

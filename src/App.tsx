@@ -17,6 +17,7 @@ import Settings      from './pages/Settings';
 import Scenarios     from './pages/Scenarios';
 import { generateGovernanceExceptions } from './analytics/governanceExceptions';
 import { useMemo } from 'react';
+import { useImportHydration } from './hooks/useImportHydration';
 
 const PAGE_TITLES: Record<string, string> = {
   overview:     'Executive Overview',
@@ -30,6 +31,7 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function AppShell() {
+  useImportHydration();
   const location = useLocation();
   const { employees, deptSpend, ratecards, policyMix } = useDomain();
 
