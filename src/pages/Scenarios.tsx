@@ -50,10 +50,11 @@ export default function Scenarios() {
       setSaveMsg('Please enter a scenario name.');
       return;
     }
-    saveCurrentAs(saveName.trim());
+    const name = saveName.trim();
     setSaveName('');
-    setSaveMsg(`Saved "${saveName.trim()}" successfully.`);
-    setTimeout(() => setSaveMsg(''), 3000);
+    saveCurrentAs(name)
+      .then(() => { setSaveMsg(`Saved "${name}" successfully.`); setTimeout(() => setSaveMsg(''), 3000); })
+      .catch(() => { setSaveMsg('Failed to save — please try again.'); });
   }
 
   function handleRenameSubmit(id: string) {
