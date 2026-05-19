@@ -5,6 +5,7 @@ import { exportEmployeesCsv } from '../utils/exportData';
 import { displayToolId } from '../ingestion/normalization/normalizeToolId';
 import Icon from '../components/Icon';
 import { useFeatureGate } from '../hooks/useFeatureGate';
+import { useAuditLog } from '../hooks/useAuditLog';
 
 interface Props {
   employees: Employee[];
@@ -12,6 +13,7 @@ interface Props {
 
 export default function Ledger({ employees }: Props) {
   const canExport = useFeatureGate('csv_export');
+  const { log }   = useAuditLog();
   const [dept,    setDept]    = useState('all');
   const [search,  setSearch]  = useState('');
   const [sortKey, setSortKey] = useState<keyof Employee>('spend');
@@ -69,7 +71,7 @@ export default function Ledger({ employees }: Props) {
           </div>
         </div>
         {canExport ? (
-          <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => exportEmployeesCsv(filtered)}>
+          <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => { exportEmployeesCsv(filtered); log('report_exported', { type: 'ledger_csv', rowCount: filtered.length }); }}>
             <Icon name="download" size={12} color="#fff" />
             Export ledger
           </button>

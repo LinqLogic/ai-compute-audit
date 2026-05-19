@@ -23,6 +23,7 @@ import { useOrg } from '../context/OrgContext';
 import { runIngestionPipelineFromFile } from '../ingestion';
 import { VendorId, SchemaType } from '../ingestion/types';
 import { persistImport } from '../api/imports';
+import { useAuditLog } from './useAuditLog';
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
   const client    = useSupabase();
   const { orgId } = useOrg();
   const { user }  = useUser();
+  const { log }   = useAuditLog();
 
   const [results,      setResults]      = useState<IntakeResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -256,12 +258,22 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
 
     setIsProcessing(false);
 
-    // Persist to Supabase if org is bootstrapped
+    // Persist to Supabase and log audit event if org is bootstrapped
     if (client && orgId && user?.id) {
       persistImport(client, orgId, user.id, imported).catch(err =>
         console.error('[useEnterpriseIntake] persistImport failed:', err),
       );
     }
+
+    log('import_completed', {
+      fileCount:   files.length,
+      filenames:   files.map(f => f.name),
+      rowCounts: {
+        workers:     imported.workers?.length     ?? 0,
+        usageEvents: imported.usageEvents?.length ?? 0,
+        rateCards:   imported.rateCards?.length   ?? 0,
+      },
+    });
   }
 
   // ── Public interface ────────────────────────────────────────────────────
@@ -285,6 +297,7 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
   const handleReset = useCallback(() => {
     resetToMock();
     setResults([]);
+    log('import_reset', {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetToMock]);
 
