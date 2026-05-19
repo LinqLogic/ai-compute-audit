@@ -20,6 +20,7 @@ import {
   IntakeStatus,
   SCHEMA_DISPLAY,
 } from '../hooks/useEnterpriseIntake';
+import { useQuota } from '../hooks/useQuota';
 
 // ─── Status display config ────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ export default function DataImportPanel() {
     inputRef, onFileInputChange, onZoneDrop,
     handleReset, downloadSample,
   } = useEnterpriseIntake();
+  const { importsUsed, importsLimit, importsExceeded } = useQuota();
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -108,6 +110,19 @@ export default function DataImportPanel() {
             type automatically. Partial uploads are supported — domains without an uploaded file
             continue using demo data.
           </p>
+
+          {/* ── Quota indicator ── */}
+          {importsLimit < Infinity && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 10, padding: '6px 10px',
+              background: importsExceeded ? 'rgba(239,68,68,.08)' : 'rgba(37,99,235,.06)',
+              borderRadius: 6, fontSize: 11, color: importsExceeded ? '#ef4444' : 'var(--text-secondary)',
+            }}>
+              <span>Imports this month: <strong>{importsUsed} / {importsLimit}</strong></span>
+              {importsExceeded && <span style={{ fontWeight: 600 }}>Quota reached — upgrade to import more</span>}
+            </div>
+          )}
 
           {/* ── Drop zone ── */}
           <DropZone

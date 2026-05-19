@@ -23,7 +23,9 @@ import { useOrg } from '../context/OrgContext';
 import { runIngestionPipelineFromFile } from '../ingestion';
 import { VendorId, SchemaType } from '../ingestion/types';
 import { persistImport } from '../api/imports';
+import { writeMeterEvent } from '../api/meter';
 import { useAuditLog } from './useAuditLog';
+import { useQuota } from './useQuota';
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
@@ -95,7 +97,8 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
   const client    = useSupabase();
   const { orgId } = useOrg();
   const { user }  = useUser();
-  const { log }   = useAuditLog();
+  const { log }           = useAuditLog();
+  const { importsExceeded, refresh: refreshQuota } = useQuota();
 
   const [results,      setResults]      = useState<IntakeResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -232,6 +235,23 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
   // Process files sequentially to avoid applyImport race conditions
   async function processFiles(files: File[]) {
     if (files.length === 0) return;
+
+    if (importsExceeded) {
+      setResults(prev => [...prev, {
+        id:            `quota-${Date.now()}`,
+        filename:      files.map(f => f.name).join(', '),
+        vendorLabel:   '—',
+        schemaLabel:   '—',
+        schemaRaw:     'unknown' as SchemaType,
+        rowsProcessed: 0,
+        warningCount:  0,
+        errorCount:    1,
+        status:        'failed' as IntakeStatus,
+        message:       'Monthly import quota reached. Upgrade your plan to import more data.',
+      }]);
+      return;
+    }
+
     setIsProcessing(true);
 
     // Reserve slots in the results list immediately (shows "Parsing…")
@@ -258,11 +278,12 @@ export function useEnterpriseIntake(): UseEnterpriseIntakeReturn {
 
     setIsProcessing(false);
 
-    // Persist to Supabase and log audit event if org is bootstrapped
+    // Persist to Supabase, write meter event, and refresh quota
     if (client && orgId && user?.id) {
       persistImport(client, orgId, user.id, imported).catch(err =>
         console.error('[useEnterpriseIntake] persistImport failed:', err),
       );
+      writeMeterEvent(client, orgId, 'import', 1, { fileCount: files.length }).then(refreshQuota);
     }
 
     log('import_completed', {
