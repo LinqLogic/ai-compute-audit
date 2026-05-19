@@ -18,6 +18,13 @@ import Scenarios     from './pages/Scenarios';
 import { generateGovernanceExceptions } from './analytics/governanceExceptions';
 import { useMemo } from 'react';
 import { useImportHydration } from './hooks/useImportHydration';
+import { useFeatureGate } from './hooks/useFeatureGate';
+import UpgradePrompt from './components/UpgradePrompt';
+
+function GatedRoute({ feature, label, children }: { feature: string; label: string; children: React.ReactNode }) {
+  const allowed = useFeatureGate(feature);
+  return allowed ? <>{children}</> : <UpgradePrompt featureName={label} />;
+}
 
 const PAGE_TITLES: Record<string, string> = {
   overview:     'Executive Overview',
@@ -56,9 +63,9 @@ function AppShell() {
             <Route path="/ledger"       element={<Ledger employees={employees} />} />
             <Route path="/departments"  element={<Departments employees={employees} deptSpend={deptSpend} />} />
             <Route path="/close"        element={<Close />} />
-            <Route path="/exceptions"   element={<Exceptions />} />
+            <Route path="/exceptions"   element={<GatedRoute feature="governance_exceptions" label="Governance Exceptions"><Exceptions /></GatedRoute>} />
             <Route path="/ratecard"     element={<Ratecard ratecards={ratecards} />} />
-            <Route path="/scenarios"    element={<Scenarios />} />
+            <Route path="/scenarios"    element={<GatedRoute feature="scenario_builder" label="Scenario Builder"><Scenarios /></GatedRoute>} />
             <Route path="/settings"     element={<Settings />} />
             <Route path="*"             element={<Navigate to="/overview" replace />} />
           </Routes>

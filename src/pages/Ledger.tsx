@@ -4,12 +4,14 @@ import { fmt$, fmtPct, riskColor, policyBadgeClass } from '../utils/format';
 import { exportEmployeesCsv } from '../utils/exportData';
 import { displayToolId } from '../ingestion/normalization/normalizeToolId';
 import Icon from '../components/Icon';
+import { useFeatureGate } from '../hooks/useFeatureGate';
 
 interface Props {
   employees: Employee[];
 }
 
 export default function Ledger({ employees }: Props) {
+  const canExport = useFeatureGate('csv_export');
   const [dept,    setDept]    = useState('all');
   const [search,  setSearch]  = useState('');
   const [sortKey, setSortKey] = useState<keyof Employee>('spend');
@@ -66,10 +68,17 @@ export default function Ledger({ employees }: Props) {
             {filtered.length} employees · April 2026 · Showback mode — informational only
           </div>
         </div>
-        <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => exportEmployeesCsv(filtered)}>
-          <Icon name="download" size={12} color="#fff" />
-          Export ledger
-        </button>
+        {canExport ? (
+          <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => exportEmployeesCsv(filtered)}>
+            <Icon name="download" size={12} color="#fff" />
+            Export ledger
+          </button>
+        ) : (
+          <button className="btn btn-primary" style={{ fontSize: 11, opacity: 0.6 }} disabled title="Upgrade to Pro to export">
+            <Icon name="download" size={12} color="#fff" />
+            Export (Pro)
+          </button>
+        )}
       </div>
 
       <div className="card-body" style={{ overflowX: 'auto' }}>
