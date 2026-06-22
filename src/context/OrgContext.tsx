@@ -30,6 +30,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         console.error('[OrgProvider] ensureOrgExists failed:', err);
         setLoading(false);
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- organization.id is the stable identity key; the full object reference can change on every Clerk render without the id changing, and re-running ensureOrgExists on each such render would produce unnecessary repeated upserts
   }, [organization?.id, client]);
 
   return (
