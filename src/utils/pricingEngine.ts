@@ -47,7 +47,7 @@ export function buildRateCardIndex(rows: RateCardRow[]): IndexedRateCard[] {
     const rate     = parseFloat(row.rate);
     const markup   = parseFloat(row.markup);
 
-    if (!provider || !model || isNaN(rate) || rate < 0) continue;
+    if (!provider || !model || isNaN(rate) || rate <= 0) continue;
 
     index.push({
       provider,
@@ -108,8 +108,9 @@ export function findRateCard(
     const undated = exactMatches.filter(rc => !rc.effectiveStart && !rc.effectiveEnd);
     if (undated.length > 0) return undated[0];
 
-    // Accept any exact match even if outside date range (better than nothing)
-    return exactMatches[0];
+    // No dated match and no undated fallback — return null so priceEvent uses billedAmount.
+    // Pricing against a stale/future-dated card produces a wrong, confident dollar figure.
+    return null;
   }
 
   // Pass 2: provider + model prefix (e.g. "gpt-4o" matches "gpt-4o-mini")
@@ -139,7 +140,7 @@ export function findRateCard(
  *   "per_image"  / "image"          / "render"     → usage_units field, default 1
  *   "per_seat"   / "seat"           / "month"      → 1 (seat = one unit per period)
  *   "per_call"   / "call"           / "request"    → 1
- *   anything else                                  → 1 (with a console warning)
+ *   anything else                                  → null (caller must treat event as unrated)
  */
 export function computeUnits(
   unitBasis:  string,
@@ -147,7 +148,7 @@ export function computeUnits(
   tokensOut:  number,
   gpuHours:   number,
   usageUnits: number,
-): number {
+): number | null {
   const basis = norm(unitBasis).replace(/-/g, '_').replace(/\s+/g, '_');
 
   // Token-based billing
@@ -202,8 +203,8 @@ export function computeUnits(
     return 1;
   }
 
-  // Unknown — default to 1, preserving billed_amount via fallback path
-  return 1;
+  // Unknown unit_basis — caller must treat the event as unrated.
+  return null;
 }
 
 // ─── 4. Price a single event ────────────────────────────────────────────────
@@ -251,7 +252,31 @@ export function priceEvent(
     };
   }
 
-  const units        = computeUnits(rc.unitBasis, tokensIn, tokensOut, gpuHours, rawUnits);
+  const units = computeUnits(rc.unitBasis, tokensIn, tokensOut, gpuHours, rawUnits);
+
+  // null means the rate card's unit_basis is unrecognised — treat as unrated rather
+  // than silently multiplying 1 × rate and producing a confidently wrong dollar figure.
+  if (units === null) {
+    return {
+      eventId:      row.event_id   || '',
+      employeeId:   row.employee_id|| '',
+      provider:     row.provider   || '',
+      model:        row.model      || '',
+      eventType:    row.event_type || '',
+      timestamp:    row.timestamp  || '',
+      tokensIn,
+      tokensOut,
+      gpuHours,
+      usageUnits:   rawUnits,
+      unitBasis:    'unrated',
+      billedAmount,
+      computedCost: 0,
+      finalCost:    billedAmount,
+      rated:        false,
+      rateKey:      'unrated',
+    };
+  }
+
   const computedCost = units * rc.rate * (1 + rc.markup);
 
   return {
